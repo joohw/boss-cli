@@ -163,3 +163,33 @@ export async function disconnectBrowserSession(): Promise<void> {
   browserRef = null;
   pageRef = null;
 }
+
+/**
+ * 仅断开与浏览器的 CDP 连接，但不主动关闭浏览器进程。
+ * 用于 `boss login` 这类“需要用户继续在浏览器里操作”的场景：
+ * CLI 可以立刻退出，而浏览器窗口仍保留给用户完成登录。
+ */
+export async function detachBrowserSession(): Promise<void> {
+  const b = browserRef;
+  if (!b) return;
+  try {
+    b.removeAllListeners('disconnected');
+    // Puppeteer 支持 disconnect：断开连接但保留浏览器进程
+    //（若底层不支持或抛错，则退化为 close）。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyB = b as any;
+    if (typeof anyB.disconnect === 'function') {
+      anyB.disconnect();
+    } else {
+      await b.close();
+    }
+  } catch {
+    try {
+      await b.close();
+    } catch {
+      /* ignore */
+    }
+  }
+  browserRef = null;
+  pageRef = null;
+}

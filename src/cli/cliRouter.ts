@@ -4,7 +4,7 @@
  */
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { disconnectBrowserSession } from '../browser/index.js';
+import { detachBrowserSession, disconnectBrowserSession } from '../browser/index.js';
 import { CACHE_DIR } from '../config.js';
 import {
   implLogin,
@@ -50,10 +50,23 @@ function shouldAutoCloseBrowser(): boolean {
   return envTruthy('BOSS_BROWSER_AUTO_CLOSE');
 }
 
-async function maybeDisconnectBrowserSession(): Promise<void> {
-  if (!shouldAutoCloseBrowser()) {
+function hasExplicitAutoCloseEnv(): boolean {
+  const v = (process.env.BOSS_BROWSER_AUTO_CLOSE ?? '').trim();
+  return v.length > 0;
+}
+
+async function cleanupAfterCommand(cmd: string, nonInteractive: boolean): Promise<void> {
+  // 约定：一次性命令默认自动清理，确保进程能退出；交互模式默认不清理（便于持续复用会话）。
+  const autoClose = hasExplicitAutoCloseEnv() ? shouldAutoCloseBrowser() : nonInteractive;
+  if (!autoClose) return;
+
+  // login 需要用户继续在浏览器里操作：只断开连接，不关浏览器窗口
+  if (cmd === 'login') {
+    await detachBrowserSession().catch(() => {});
     return;
   }
+
+  // 其它命令：关闭浏览器会话与进程，避免残留句柄导致 CLI 不退出
   await disconnectBrowserSession().catch(() => {});
 }
 
@@ -291,7 +304,7 @@ async function runInteractiveLoop(): Promise<void> {
     }
   } finally {
     rl.close();
-    await maybeDisconnectBrowserSession();
+    await cleanupAfterCommand('interactive', false);
   }
 }
 
@@ -309,6 +322,6 @@ export async function runCli(argv: string[]): Promise<void> {
   try {
     await runOneCommand(argv);
   } finally {
-    await maybeDisconnectBrowserSession();
+    await cleanupAfterCommand(argv[0] ?? '', true);
   }
 }

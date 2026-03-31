@@ -9,6 +9,7 @@ export {
   type ConnectBrowserOptions,
 } from './cdp_browser.js';
 export {
+  detachBrowserSession,
   disconnectBrowserSession,
   ensureAndGetBrowser,
   ensureBrowserSession,
