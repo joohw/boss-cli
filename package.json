@@ -1,5 +1,5 @@
 {
-  "name": "boss-cli",
+  "name": "@joohw/boss-cli",
   "version": "0.1.1",
   "description": "Boss 直聘浏览器自动化 CLI（CDP + Puppeteer），供 Agent 运行时调用",
   "type": "module",

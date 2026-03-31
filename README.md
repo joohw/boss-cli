@@ -16,7 +16,7 @@
 全局安装（推荐）：
 
 ```bash
-npm install -g boss-cli
+npm install -g @joohw/boss-cli
 ```
 
 安装后使用：
