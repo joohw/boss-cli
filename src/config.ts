@@ -7,6 +7,9 @@ import { homedir } from 'os';
 /** 应用主目录（业务数据在 .cache 下） */
 export const APP_HOME = join(homedir(), '.boss-cli');
 
+/** 存放岗位 JD 的目录（每个岗位一个 .md 文件） */
+export const JD_DIR = join(APP_HOME, 'jd');
+
 /**
  * 应用缓存与生成数据根目录（浏览器配置等）
  */
@@ -28,5 +31,8 @@ export function ensureAppDataLayout(): void {
   }
   if (!existsSync(BROWSER_USER_DATA_DIR)) {
     mkdirSync(BROWSER_USER_DATA_DIR, { recursive: true });
+  }
+  if (!existsSync(JD_DIR)) {
+    mkdirSync(JD_DIR, { recursive: true });
   }
 }

@@ -1,5 +1,6 @@
 import type { Browser, Page } from 'puppeteer-core';
 import {
+  disconnectBrowserSession,
   ensureAndGetBrowser,
   ensureBrowserSession,
   getBrowserRef,
@@ -79,6 +80,19 @@ export async function runLogin(options: WaitForLoginOptions = {}): Promise<strin
   const timeoutMs = options.timeoutMs ?? 120_000;
   const pollMs = options.pollMs ?? 2_000;
 
+  // 登录必须可见：即使之前已启动 headless 会话，也需要重启为 headful。
+  process.env.BOSS_BROWSER_HEADLESS = 'false';
+  const existing = getBrowserRef();
+  try {
+    const args = existing?.process?.()?.spawnargs ?? [];
+    const isHeadless = args.some((a) => typeof a === 'string' && a.startsWith('--headless'));
+    if (existing?.connected && isHeadless) {
+      await disconnectBrowserSession().catch(() => {});
+    }
+  } catch {
+    // ignore
+  }
+
   let browser: Browser | null = null;
   try {
     browser = (await ensureAndGetBrowser()) ?? (getBrowserRef() ?? null);
@@ -106,11 +120,15 @@ export async function runLogin(options: WaitForLoginOptions = {}): Promise<strin
   await waitForBossLogin({ timeoutMs, pollMs });
 
   const after = await probeLoggedInFromPage(page);
-  return [
+  const result = [
     '✅ 登录成功',
     `当前页：${after.url}`,
   ]
     .filter(Boolean)
     .join('\n');
+
+  // 登录成功后关闭浏览器（保持终端干净、避免遗留进程）；失败/超时会抛错，不走到这里，也就不会关闭。
+  await disconnectBrowserSession().catch(() => {});
+  return result;
 }
 

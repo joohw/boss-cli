@@ -1,18 +1,17 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { JD_DIR, ensureAppDataLayout } from '../config.js';
 
 export type ListOpenPositionsDeps = {
   /**
    * 存放岗位 JD 的目录（每个岗位一个 .md/.MD 文件）。
-   * 默认：本包根目录下的 `jd/`（相对 `src/toolset` 或 `dist/toolset` 解析）。
+   * 默认：`~/.boss-cli/d1`（Windows 为 `%USERPROFILE%\.boss-cli\d1`）。
    */
   jdDir?: string;
 };
 
 function defaultJdDir(): string {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return path.join(here, '..', '..', 'jd');
+  return JD_DIR;
 }
 
 function isMdFile(name: string): boolean {
@@ -22,6 +21,7 @@ function isMdFile(name: string): boolean {
 export async function runListOpenPositions(
   deps: ListOpenPositionsDeps = {},
 ): Promise<string> {
+  ensureAppDataLayout();
   const jdDir = deps.jdDir ?? defaultJdDir();
   console.error(`[boss-cli] list_open_positions jdDir=${jdDir}`);
 

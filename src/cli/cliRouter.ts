@@ -23,6 +23,40 @@ class CliError extends Error {
   }
 }
 
+function envTruthy(name: string): boolean {
+  const v = (process.env[name] ?? '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'y';
+}
+
+function shouldRunHeadful(): boolean {
+  return (
+    envTruthy('bosscliheadful') ||
+    envTruthy('BOSSCLIHEADFUL') ||
+    envTruthy('BOSSCLI_HEADFUL') ||
+    envTruthy('BOSS_CLI_HEADFUL')
+  );
+}
+
+function configureHeadlessForCommand(cmd: string): void {
+  if (cmd === 'login') {
+    // 登录必须可见：方便扫码/人机验证/手动操作
+    process.env.BOSS_BROWSER_HEADLESS = 'false';
+    return;
+  }
+  process.env.BOSS_BROWSER_HEADLESS = shouldRunHeadful() ? 'false' : 'true';
+}
+
+function shouldAutoCloseBrowser(): boolean {
+  return envTruthy('BOSS_BROWSER_AUTO_CLOSE');
+}
+
+async function maybeDisconnectBrowserSession(): Promise<void> {
+  if (!shouldAutoCloseBrowser()) {
+    return;
+  }
+  await disconnectBrowserSession().catch(() => {});
+}
+
 function die(msg: string): never {
   throw new CliError(msg);
 }
@@ -83,12 +117,12 @@ function printHelp(): void {
   boss list-candidates
       读取「全部」聊天列表候选人
       --unread 仅显示未读（角标>0）
-  boss open-chat <姓名> [--fuzzy]
-      打开指定联系人会话；默认精确匹配，--fuzzy 为包含匹配
+  boss open-chat <姓名> [--strict]
+      打开指定联系人会话；默认包含匹配，--strict 为精确匹配
   boss send-message --text <内容> [--also-request-resume]
       在聊天输入框发送消息；-t 同 --text
   boss list-positions
-      读取本地 jd/ 目录下的岗位 Markdown
+      读取本地 ~/.boss-cli/jd 目录下的岗位 Markdown（Windows 为 %USERPROFILE%\.boss-cli\jd）
 
 成功时 stdout 为纯文本；业务失败时进程退出码为 1。
 
@@ -163,6 +197,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
 
   const cmd = argv[0];
   const tail = argv.slice(1);
+  configureHeadlessForCommand(cmd);
 
   if (cmd === 'login') {
     return implLogin();
@@ -180,9 +215,10 @@ export async function executeCommand(argv: string[]): Promise<string> {
     const { rest, flags } = parseOpts(tail);
     const nameArg = rest[0]?.trim();
     if (!nameArg) {
-      die('❌ 用法: open-chat <姓名> [--fuzzy]');
+      die('❌ 用法: open-chat <姓名> [--strict]');
     }
-    const exact = !flags.has('fuzzy');
+    // 默认模糊匹配（包含）；仅在指定 --strict 时做精确匹配
+    const exact = flags.has('strict');
     return implOpenChat(nameArg, exact);
   }
 
@@ -255,7 +291,7 @@ async function runInteractiveLoop(): Promise<void> {
     }
   } finally {
     rl.close();
-    await disconnectBrowserSession().catch(() => {});
+    await maybeDisconnectBrowserSession();
   }
 }
 
@@ -273,6 +309,6 @@ export async function runCli(argv: string[]): Promise<void> {
   try {
     await runOneCommand(argv);
   } finally {
-    await disconnectBrowserSession().catch(() => {});
+    await maybeDisconnectBrowserSession();
   }
 }

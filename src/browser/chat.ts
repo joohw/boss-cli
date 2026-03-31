@@ -37,35 +37,60 @@ async function pickExistingPage(browser: Browser): Promise<Page | null> {
  * 仅负责“浏览器状态/导航”，不在这里做登录成功与否的业务判断。
  */
 export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
-  await ensureBrowserSession();
-  const browser = getBrowserRef();
-  if (!browser) {
-    throw new Error('无法获取浏览器实例。');
-  }
+  const isContextDestroyed = (e: unknown): boolean => {
+    const msg = e instanceof Error ? e.message : String(e);
+    return (
+      msg.includes('Execution context was destroyed') ||
+      msg.includes('Cannot find context with specified id') ||
+      msg.includes('Most likely because of a navigation')
+    );
+  };
 
-  let page: Page | null = getPageRef();
-  if (!page || page.isClosed()) {
-    page = (await pickExistingPage(browser)) ?? (await browser.newPage());
-  }
-  setSessionPage(page);
-  await page.bringToFront();
-  if (SHOULD_DISABLE_JS) {
-    await page.setJavaScriptEnabled(false);
-  }
-
-  // 如果当前已在沟通列表页，则不刷新页面，避免打断用户状态（滚动位置/选中会话等）。
-  const currentUrl = (() => {
+  const maxAttempts = 2;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      return page.url();
-    } catch {
-      return '';
+      await ensureBrowserSession();
+      const browser = getBrowserRef();
+      if (!browser) {
+        throw new Error('无法获取浏览器实例。');
+      }
+
+      let page: Page | null = getPageRef();
+      if (!page || page.isClosed()) {
+        page = (await pickExistingPage(browser)) ?? (await browser.newPage());
+      }
+      setSessionPage(page);
+      await page.bringToFront();
+      if (SHOULD_DISABLE_JS) {
+        await page.setJavaScriptEnabled(false);
+      }
+
+      // 如果当前已在沟通列表页，则不刷新页面，避免打断用户状态（滚动位置/选中会话等）。
+      const currentUrl = (() => {
+        try {
+          return page.url();
+        } catch {
+          return '';
+        }
+      })();
+      if (!isBossChatIndexUrl(currentUrl)) {
+        await page.goto(BOSS_CHAT_INDEX_URL, { waitUntil: 'load', timeout: 60_000 });
+        // 等待页面渲染稳定（SPA/异步接口），避免紧接着查询元素时拿不到
+        await sleep(2_000);
+      }
+
+      return await callback(page);
+    } catch (e) {
+      lastErr = e;
+      if (attempt < maxAttempts - 1 && isContextDestroyed(e)) {
+        // Boss 页面偶发跳转/重渲染会销毁执行上下文；短暂等待并重试一次即可。
+        await sleep(600);
+        continue;
+      }
+      throw e;
     }
-  })();
-  if (!isBossChatIndexUrl(currentUrl)) {
-    await page.goto(BOSS_CHAT_INDEX_URL, { waitUntil: 'load', timeout: 60_000 });
-    // 等待页面渲染稳定（SPA/异步接口），避免紧接着查询元素时拿不到
-    await sleep(2_000);
   }
-  return callback(page);
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
