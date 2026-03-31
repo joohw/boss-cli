@@ -1,0 +1,32 @@
+{
+  "name": "boss-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Boss 直聘浏览器自动化 CLI（CDP + Puppeteer，无 Agent 运行时）",
+  "type": "module",
+  "main": "dist/cli/index.js",
+  "types": "dist/cli/index.d.ts",
+  "bin": {
+    "boss": "dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "AGENTS.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "npm run build && node dist/cli/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "puppeteer-core": "^24.29.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.3.3"
+  },
+  "author": "Joo <1546635571@qq.com>",
+  "license": "GPL-3.0"
+}
