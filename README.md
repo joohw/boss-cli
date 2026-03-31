@@ -45,7 +45,7 @@ npm run build
 | ------------------------------------------------------------ | --------------------------------- |
 | `boss`                                                       | 交互模式                              |
 | `boss help`                                                  | 打印帮助                              |
-| `boss login`                                                 | 打开登录页并等待你完成登录                     |
+| `boss login`                                                 | 打开登录页（不校验登录状态；需自行完成登录）   |
 | `boss list-candidates [--unread]`                           | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
 | `boss open-chat <姓名> [--strict]`                            | 打开指定联系人会话；默认包含匹配，`--strict` 为精确匹配 |
 | `boss send-message --text <内容> [--also-request-resume]`      | 发送消息；可选在发送后触发「求简历」                |

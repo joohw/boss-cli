@@ -113,7 +113,7 @@ function printHelp(): void {
   boss help
       显示本帮助
   boss login
-      打开登录页并等待你在浏览器中完成登录
+      打开登录页（需要在浏览器中自行完成登录）
   boss list-candidates
       读取「全部」聊天列表候选人
       --unread 仅显示未读（角标>0）

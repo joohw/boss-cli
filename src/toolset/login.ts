@@ -5,15 +5,8 @@ import {
   ensureBrowserSession,
   getBrowserRef,
   getPageRef,
-  probeLoggedInFromPage,
   setSessionPage,
-  sleep,
 } from '../browser/index.js';
-
-type WaitForLoginOptions = {
-  timeoutMs?: number;
-  pollMs?: number;
-};
 
 const BOSS_LOGIN_URL = 'https://www.zhipin.com/web/user/?ka=header-login';
 
@@ -44,42 +37,11 @@ async function pickExistingPage(browser: Browser): Promise<Page | null> {
   return nonBlank ?? null;
 }
 
-async function waitForBossLogin(opts: Required<WaitForLoginOptions>): Promise<void> {
-  const start = Date.now();
-  for (;;) {
-    const page = getPageRef();
-    if (!page) {
-      throw new Error('浏览器页面已不存在，登录中断。');
-    }
-    if (page.isClosed?.()) {
-      throw new Error('浏览器页面已关闭，登录中断。');
-    }
-    const browser = page.browser?.();
-    if (browser && !browser.isConnected()) {
-      throw new Error('浏览器已断开连接，登录中断。');
-    }
-
-    const { loggedIn, url } = await probeLoggedInFromPage(page);
-    if (loggedIn) {
-      console.error(`[boss-cli] login ok url=${url}`);
-      return;
-    }
-
-    if (Date.now() - start >= opts.timeoutMs) {
-      throw new Error(`登录超时（${Math.round(opts.timeoutMs / 1000)}s）。请在浏览器中完成登录后重试。`);
-    }
-    await sleep(opts.pollMs);
-  }
-}
-
 /**
- * 登录（手动）：打开 Boss 登录页，并等待用户在浏览器中完成登录。
- * 成功返回纯文本；失败抛错（由 CLI 统一写入 stderr 并设置退出码）。
+ * 登录（手动）：只负责打开 Boss 登录页，让用户在浏览器中自行完成登录。
+ * 不做登录态校验/等待/超时判断；成功与否由后续命令自行体现。
  */
-export async function runLogin(options: WaitForLoginOptions = {}): Promise<string> {
-  const timeoutMs = options.timeoutMs ?? 120_000;
-  const pollMs = options.pollMs ?? 2_000;
-
+export async function runLogin(): Promise<string> {
   // 登录必须可见：即使之前已启动 headless 会话，也需要重启为 headful。
   process.env.BOSS_BROWSER_HEADLESS = 'false';
   const existing = getBrowserRef();
@@ -116,19 +78,12 @@ export async function runLogin(options: WaitForLoginOptions = {}): Promise<strin
   await page.bringToFront();
   await page.goto(BOSS_LOGIN_URL, { waitUntil: 'load', timeout: 60_000 });
 
-  console.error(`⏰ 请在浏览器中完成登录（超时 ${Math.round(timeoutMs / 1000)} 秒）`);
-  await waitForBossLogin({ timeoutMs, pollMs });
-
-  const after = await probeLoggedInFromPage(page);
-  const result = [
-    '✅ 登录成功',
-    `当前页：${after.url}`,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  // 登录成功后关闭浏览器（保持终端干净、避免遗留进程）；失败/超时会抛错，不走到这里，也就不会关闭。
-  await disconnectBrowserSession().catch(() => {});
-  return result;
+  // 不做任何登录校验：只把浏览器打开到登录页，后续命令会复用该会话。
+  return [
+    '✅ 已打开登录页',
+    '请在浏览器中自行完成登录（扫码/验证码/人机验证等）。',
+    '登录完成后直接在终端运行其它命令即可（例如：boss list-candidates / boss open-chat ...）。',
+    `登录页：${BOSS_LOGIN_URL}`,
+  ].join('\n');
 }
 
