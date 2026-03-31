@@ -17,5 +17,6 @@ export {
   setSessionPage,
 } from './browser_session.js';
 
-export { withLoggedInPage } from './withLoggedInPage.js';
 export * from './auth.js';
+export { withLoggedInPage } from './withLoggedInPage.js';
+export { withChatPage } from './chat.js';

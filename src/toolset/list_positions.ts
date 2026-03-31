@@ -20,14 +20,10 @@ function isMdFile(name: string): boolean {
 }
 
 export async function runListOpenPositions(
-  note?: string,
   deps: ListOpenPositionsDeps = {},
 ): Promise<string> {
   const jdDir = deps.jdDir ?? defaultJdDir();
-  const trimmedNote = note?.trim();
-  console.error(
-    `[boss-cli] list_open_positions jdDir=${jdDir}${trimmedNote ? ` note=${trimmedNote}` : ''}`,
-  );
+  console.error(`[boss-cli] list_open_positions jdDir=${jdDir}`);
 
   try {
     const entries = await readdir(jdDir, { withFileTypes: true });
@@ -52,7 +48,7 @@ export async function runListOpenPositions(
     });
     const textBody = blocks.length > 0 ? blocks.join('\n\n') : '（该目录下暂无 .md/.MD 岗位文件）';
 
-    return [header, trimmedNote ? `备注：${trimmedNote}` : '', textBody].filter(Boolean).join('\n');
+    return [header, textBody].filter(Boolean).join('\n');
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error(`[boss-cli] list_open_positions error: ${message}`);

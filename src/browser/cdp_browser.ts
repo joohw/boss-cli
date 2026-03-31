@@ -6,7 +6,6 @@ import { BROWSER_USER_DATA_DIR, ensureAppDataLayout } from '../config.js';
 /** 在未配置路径时，尝试常见安装位置（Chrome / Edge / Chromium）。 */
 function findLocalChromiumExecutable(): string | undefined {
   const candidates: string[] = [];
-
   if (process.platform === 'win32') {
     const local = process.env.LOCALAPPDATA;
     const pf = process.env.PROGRAMFILES;

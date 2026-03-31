@@ -137,7 +137,7 @@ export function getPageRef(): Page | null {
 
 /**
  * 将当前会话的主操作页设为 `page`（须属于已连接的 `browserRef`）。
- * 供 `open_chat_list` 在新建或选中标签后同步，便于其它工具通过 `getPageRef` 复用。
+ * 供“导航/打开页面”类流程在新建或选中标签后同步，便于其它工具通过 `getPageRef` 复用。
  */
 export function setSessionPage(page: Page): void {
   if (!browserRef?.connected) return;

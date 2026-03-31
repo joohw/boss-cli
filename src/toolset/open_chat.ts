@@ -1,20 +1,14 @@
 import type { Page } from 'puppeteer-core';
-import { getPageRef } from '../browser/index.js';
-import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from '../browser/index.js';
+import { isBossChatIndexUrl } from '../browser/index.js';
 
 export async function runOpenCandidateChat(
+  page: Page,
   candidateName: string,
   exact = true,
 ): Promise<string> {
   const targetName = candidateName.trim();
-  console.error(`[boss-cli] open_candidate_chat called name=${targetName} exact=${String(exact)}`);
 
   try {
-    const page = getPageRef();
-    if (!page) {
-      throw new Error(createWaitManualLoginRequiredText('打开候选人聊天'));
-    }
-
     const currentUrl = page.url();
     if (!isBossChatIndexUrl(currentUrl)) {
       throw new Error('请先进入聊天列表页（/web/chat/index）再打开候选人聊天。');
@@ -195,8 +189,7 @@ export async function runOpenCandidateChat(
         (m, i) => `${i + 1}. [${m.from}]${m.time ? `(${m.time})` : ''} ${m.text}`,
       );
       console.error(
-        `[boss-cli] open_candidate_chat full_messages count=${fullMessages.length} hasFriendResumeAttachment=${String(hasFriendResumeAttachment)}\n${
-          lines.length > 0 ? lines.join('\n') : '(empty)'
+        `[boss-cli] open_candidate_chat full_messages count=${fullMessages.length} hasFriendResumeAttachment=${String(hasFriendResumeAttachment)}\n${lines.length > 0 ? lines.join('\n') : '(empty)'
         }`,
       );
     } catch (e) {

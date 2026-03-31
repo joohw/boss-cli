@@ -13,6 +13,18 @@
 
 ## 安装与本地运行
 
+全局安装（推荐）：
+
+```bash
+npm install -g boss-cli
+```
+
+安装后使用：
+
+```bash
+boss help
+```
+
 从源码：
 
 ```bash
@@ -20,7 +32,7 @@ npm install
 npm run build
 ```
 
-构建产物入口为 `dist/cli/index.js`，等价于命令 `**boss**`（见 `package.json` 的 `bin`）。
+构建产物入口为 `dist/cli/index.js`，等价于命令 `boss`（见 `package.json` 的 `bin`）。
 
 ---
 
@@ -34,10 +46,10 @@ npm run build
 | `boss`                                                       | 交互模式                              |
 | `boss help`                                                  | 打印帮助                              |
 | `boss login`                                                 | 打开登录页并等待你完成登录                     |
-| `boss list-candidates [--note <备注>]`                        | 读取「全部」聊天列表候选人                     |
+| `boss list-candidates [--unread]`                           | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
 | `boss open-chat <姓名> [--fuzzy]`                             | 打开指定联系人会话；默认精确匹配，`--fuzzy` 为包含匹配 |
 | `boss send-message --text <内容> [--also-request-resume]`      | 发送消息；可选在发送后触发「求简历」                |
-| `boss list-positions [--note <备注>]`                          | 读取本地 `jd/` 目录下的岗位 Markdown        |
+| `boss list-positions`                                        | 读取本地 `jd/` 目录下的岗位 Markdown        |
 
 
 **交互模式**

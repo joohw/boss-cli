@@ -9,6 +9,7 @@ import { CACHE_DIR } from '../config.js';
 import {
   implLogin,
   implListCandidates,
+  implListUnreadCandidates,
   implListPositions,
   implOpenChat,
   implSendMessage,
@@ -79,13 +80,14 @@ function printHelp(): void {
       显示本帮助
   boss login
       打开登录页并等待你在浏览器中完成登录
-  boss list-candidates [--note <备注>]
+  boss list-candidates
       读取「全部」聊天列表候选人
+      --unread 仅显示未读（角标>0）
   boss open-chat <姓名> [--fuzzy]
       打开指定联系人会话；默认精确匹配，--fuzzy 为包含匹配
   boss send-message --text <内容> [--also-request-resume]
       在聊天输入框发送消息；-t 同 --text
-  boss list-positions [--note <备注>]
+  boss list-positions
       读取本地 jd/ 目录下的岗位 Markdown
 
 成功时 stdout 为纯文本；业务失败时进程退出码为 1。
@@ -167,8 +169,11 @@ export async function executeCommand(argv: string[]): Promise<string> {
   }
 
   if (cmd === 'list-candidates') {
-    const { opts } = parseOpts(tail);
-    return implListCandidates(opts.note);
+    const { flags } = parseOpts(tail);
+    if (flags.has('unread')) {
+      return implListUnreadCandidates();
+    }
+    return implListCandidates();
   }
 
   if (cmd === 'open-chat') {
@@ -195,8 +200,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
   }
 
   if (cmd === 'list-positions') {
-    const { opts } = parseOpts(tail);
-    return implListPositions(opts.note);
+    return implListPositions();
   }
 
   die(`❌ 未知命令 “${cmd}”。输入 help 查看用法。`);
@@ -218,9 +222,7 @@ export async function runOneCommand(argv: string[]): Promise<void> {
 async function runInteractiveLoop(): Promise<void> {
   const rl = createInterface({ input, output, terminal: true });
   printBossInteractiveBanner();
-  console.error(
-    '交互模式：login 登录；list-candidates 候选人列表；open-chat 打开会话；send-message 发消息（可带 --also-request-resume）；list-positions 岗位 JD；help 帮助；exit / quit 退出。\n',
-  );
+  console.error('欢迎使用 boss-cli。输入 help 查看可用命令，exit / quit 退出。\n');
   try {
     for (;;) {
       let line: string;
