@@ -2,10 +2,8 @@
   "folders": [
     {
       "path": "."
-    },
-    {
-      "path": "../xhs-cli"
     }
   ],
-  "settings": {}
+  "settings": {
+  }
 }

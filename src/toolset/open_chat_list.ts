@@ -6,7 +6,7 @@ import {
   getPageRef,
   setSessionPage,
 } from '../browser/index.js';
-import { BOSS_CHAT_INDEX_URL, probeLoggedInFromPage } from './login_shared.js';
+import { BOSS_CHAT_INDEX_URL, probeLoggedInFromPage } from '../browser/index.js';
 
 const DEFAULT_CHAT_LIST_URL = BOSS_CHAT_INDEX_URL;
 const SHOULD_DISABLE_JS =

@@ -16,3 +16,6 @@ export {
   getPageRef,
   setSessionPage,
 } from './browser_session.js';
+
+export { withLoggedInPage } from './withLoggedInPage.js';
+export * from './auth.js';

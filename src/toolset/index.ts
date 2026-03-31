@@ -6,32 +6,26 @@ import { runOpenCandidateChat } from './open_candidate_chat.js';
 import { runOpenChatList } from './open_chat_list.js';
 import { runSendChatMessage } from './send_chat_message.js';
 
-export async function implOpenChatList(): Promise<string> {
-  return runOpenChatList();
-}
-
 export async function implLogin(): Promise<string> {
   return runLogin();
 }
 
-export async function implGetCandidateList(note?: string): Promise<string> {
+export async function implListCandidates(note?: string): Promise<string> {
   return runGetCandidateList(note);
 }
 
-export async function implOpenCandidateChat(
-  candidateName: string,
-  exact: boolean,
-): Promise<string> {
+export async function implOpenChat(candidateName: string, exact: boolean): Promise<string> {
+  await runOpenChatList();
   return runOpenCandidateChat(candidateName, exact);
 }
 
-export async function implSendChatMessage(
+export async function implSendMessage(
   text: string,
   alsoRequestResume: boolean,
 ): Promise<string> {
   return runSendChatMessage(text, alsoRequestResume);
 }
 
-export async function implListOpenPositions(note?: string): Promise<string> {
+export async function implListPositions(note?: string): Promise<string> {
   return runListOpenPositions(note);
 }

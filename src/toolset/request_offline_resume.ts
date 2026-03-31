@@ -1,6 +1,6 @@
 import type { Page } from 'puppeteer-core';
 import { getPageRef } from '../browser/index.js';
-import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from './login_shared.js';
+import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from '../browser/index.js';
 
 /**
  * 与「索取离线简历」工具相同逻辑，供 `send_chat_message` 附带索简历等场景复用。

@@ -34,11 +34,10 @@ npm run build
 | `boss`                                                       | 交互模式                              |
 | `boss help`                                                  | 打印帮助                              |
 | `boss login`                                                 | 打开登录页并等待你完成登录                     |
-| `boss open-chat-list`                                        | 连接浏览器并打开沟通列表页 `/web/chat/index`   |
-| `boss get-candidate-list [--note <备注>]`                      | 读取「全部」聊天列表候选人                     |
-| `boss open-candidate-chat <姓名> [--fu`交互模式：提示符 `boss> zzy]`   | 按姓名打开候选人聊天；默认精确匹配，`--fuzzy` 为包含匹配 |
-| `boss send-chat-message --text <内容> [--also-request-resume]` | 发送消息；可选在发送后触发「求简历」                |
-| `boss list-open-positions [--note <备注>]`                     | 读取本地 `jd/` 目录下的岗位 Markdown        |
+| `boss list-candidates [--note <备注>]`                        | 读取「全部」聊天列表候选人                     |
+| `boss open-chat <姓名> [--fuzzy]`                             | 打开指定联系人会话；默认精确匹配，`--fuzzy` 为包含匹配 |
+| `boss send-message --text <内容> [--also-request-resume]`      | 发送消息；可选在发送后触发「求简历」                |
+| `boss list-positions [--note <备注>]`                          | 读取本地 `jd/` 目录下的岗位 Markdown        |
 
 
 **交互模式**
@@ -50,7 +49,7 @@ npm run build
 
 ## 数据目录
 
-默认数据在 `**~/.boss-cli/.cache/`**（Cookie、缓存、浏览器用户数据目录等），细节见 `**src/config.ts`**。仓库内 **[AGENTS.md](./AGENTS.md)** 供自动化/协作参考。
+默认数据在 `~/.boss-cli/.cache/`（Cookie、缓存、浏览器用户数据目录等），细节见 `src/config.ts`。仓库内 **[AGENTS.md](./AGENTS.md)** 供自动化/协作参考。
 
 ---
 

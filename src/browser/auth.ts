@@ -10,9 +10,9 @@ export const BOSS_DEFAULT_LANDING_URL =
 /** 沟通页（登录成功后的典型落地页之一） */
 export const BOSS_CHAT_INDEX_URL = 'https://www.zhipin.com/web/chat/index';
 
-/** 尚未有可用的浏览器会话时，提示先调用 `login`（或 `open-chat-list`）。 */
+/** 尚未有可用的浏览器会话时的提示文本（供工具抛错复用）。 */
 export function createWaitManualLoginRequiredText(action: string): string {
-  return `浏览器尚未初始化，无法${action}。请先运行 boss login（推荐）或 boss open-chat-list 连接浏览器并进入沟通列表。`;
+  return `浏览器尚未初始化，无法${action}。请先运行 boss login 并在浏览器中完成登录。`;
 }
 
 /** 当前 URL 是否为沟通页 `/web/chat/index`（允许带 query） */
@@ -27,19 +27,6 @@ export function isBossChatIndexUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * 沟通页且存在顶栏登录信息（与 {@link probeLoggedInFromPage} 一致）。
- * 用于「等待手动登录」成功条件。
- */
-export async function probeBossChatIndexLoggedIn(page: Page): Promise<boolean> {
-  const url = page.url();
-  if (!isBossChatIndexUrl(url)) {
-    return false;
-  }
-  const { loggedIn } = await probeLoggedInFromPage(page);
-  return loggedIn;
 }
 
 /** 未登录时常见跳转：如 `https://www.zhipin.com/web/user/?ka=bticket` */
@@ -73,7 +60,6 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** 与 {@link probeLoggedInSignals} 返回结构一致 */
 export type ProbeLoggedInSignals = {
   hasNickname: boolean;
   navLoginCta: boolean;
@@ -135,9 +121,6 @@ const PROBE_LOGGED_IN_SIGNALS_SCRIPT = `(() => {
   return { hasNickname: hasNickname, navLoginCta: navLoginCta, hasLogoutHint: hasLogoutHint };
 })()`;
 
-/**
- * 在浏览器内检测登录相关信号（避免对 `page.content()` 做整页字符串匹配：SPA 晚渲染会误判；脚本里的「我要登录」会误判）。
- */
 async function probeLoggedInSignals(page: Page): Promise<ProbeLoggedInSignals> {
   return (await page.evaluate(PROBE_LOGGED_IN_SIGNALS_SCRIPT)) as ProbeLoggedInSignals;
 }
@@ -145,12 +128,14 @@ async function probeLoggedInSignals(page: Page): Promise<ProbeLoggedInSignals> {
 /**
  * 根据当前页判断是否已登录（不导航）。
  *
- * **已登录（true）**：在浏览器内检测到顶栏昵称（多类名匹配）、或「退出登录」/logout 链接等已登录常见信号。
+ * **已登录（true）**：检测到顶栏昵称、或「退出登录」/logout 等信号。
  * 会短轮询等待 SPA 渲染，避免 `goto` 后立即读静态 HTML 误判。
  *
- * **未登录（false）**：`/web/user/` 登录流 URL、顶栏区域出现「我要登录」入口、且轮询结束仍无昵称/退出类信号。
+ * **未登录（false）**：`/web/user/` 登录流 URL、顶栏出现「我要登录」入口、且轮询结束仍无昵称/退出类信号。
  */
-export async function probeLoggedInFromPage(page: Page): Promise<{ loggedIn: boolean; url: string }> {
+export async function probeLoggedInFromPage(
+  page: Page,
+): Promise<{ loggedIn: boolean; url: string }> {
   const url = page.url();
   if (!url || url === 'about:blank') {
     return { loggedIn: false, url: url || '' };
@@ -176,3 +161,14 @@ export async function probeLoggedInFromPage(page: Page): Promise<{ loggedIn: boo
 
   return { loggedIn: false, url };
 }
+
+/** 沟通页且已登录（与 {@link probeLoggedInFromPage} 一致）。 */
+export async function probeBossChatIndexLoggedIn(page: Page): Promise<boolean> {
+  const url = page.url();
+  if (!isBossChatIndexUrl(url)) {
+    return false;
+  }
+  const { loggedIn } = await probeLoggedInFromPage(page);
+  return loggedIn;
+}
+

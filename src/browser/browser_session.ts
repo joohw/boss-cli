@@ -1,6 +1,5 @@
 import type { Browser, Page } from 'puppeteer-core';
 import { connectBrowser } from './cdp_browser.js';
-
 let browserRef: Browser | null = null;
 let pageRef: Page | null = null;
 let connectPromise: Promise<void> | null = null;
@@ -65,7 +64,7 @@ async function establishSession(): Promise<void> {
   if (prev) {
     try {
       prev.removeAllListeners('disconnected');
-      await prev.disconnect();
+      await prev.close();
     } catch {
       /* 已断开时忽略 */
     }
@@ -157,7 +156,7 @@ export async function disconnectBrowserSession(): Promise<void> {
   if (!b) return;
   try {
     b.removeAllListeners('disconnected');
-    await b.disconnect();
+    await b.close();
   } catch {
     /* ignore */
   }

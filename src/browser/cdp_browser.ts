@@ -55,15 +55,10 @@ export const LAUNCH_ARGS_LESS_AUTOMATION = [
 export const LAUNCH_ARGS_ALLOW_ALL_CORS = [
   '--disable-web-security',
   '--allow-running-insecure-content',
-  '--disable-features=IsolateOrigins,site-per-process',
 ] as const;
 
 export type ConnectBrowserOptions = {
-  /** 已启动 Chrome 的 DevTools WebSocket，例如 `ws://127.0.0.1:9222/devtools/browser/...` */
-  browserWSEndpoint?: string;
-  /** 已启动 Chrome/Edge 的 DevTools HTTP 地址，例如 `http://127.0.0.1:9222` */
-  browserURL?: string;
-  /** 未指定 `browserWSEndpoint` 时用于启动本机 Chrome/Edge */
+  /** 用于启动本机 Chrome/Edge */
   executablePath?: string;
   /** 启动浏览器时复用的用户数据目录（登录态/缓存等） */
   userDataDir?: string;
@@ -76,33 +71,19 @@ export type ConnectBrowserOptions = {
 }
 
 /**
- * 通过 CDP 连接或启动浏览器（puppeteer-core 底层为 Chrome DevTools Protocol）。
+ * 启动本机浏览器（puppeteer-core 底层为 Chrome DevTools Protocol）。
  *
  * 环境变量（可选）：
- * - `BOSS_BROWSER_WS_ENDPOINT` — 优先：连接到已有浏览器
- * - `BOSS_BROWSER_URL` — 次优先：通过 `http://127.0.0.1:9222` 这类调试地址连接已有浏览器
  * - `CHROME_PATH` / `PUPPETEER_EXECUTABLE_PATH` — 启动本机浏览器可执行文件路径（高于自动探测）
  * - `BOSS_BROWSER_USER_DATA_DIR` — 启动浏览器时复用的用户数据目录；未设置时默认 `~/.boss-cli/.cache/browser-data`
  * - `BOSS_BROWSER_PROFILE_DIRECTORY` — 启动浏览器时指定 profile（如 `Default`）
  * - `BOSS_BROWSER_ALLOW_ALL_CORS` — 设为 `true` 时附加放宽同源/CORS 的启动参数（仅调试）
+ * - `BOSS_BROWSER_DISABLE_GPU` — 设为 `true` 时附加 `--disable-gpu`
  *
  * 若以上均未设置，会按系统尝试常见 Chrome / Edge / Chromium 安装路径。
  * - `BOSS_BROWSER_HEADLESS` — 设为 `true` 时启用无头；默认**有界面**。
- *
- * 连接已有浏览器（`BOSS_BROWSER_WS_ENDPOINT`）时，Puppeteer 无法改启动参数；若仍出现自动化提示，请用本机命令行自行启动 Chrome，并带上与 {@link LAUNCH_ARGS_LESS_AUTOMATION} 同类参数，且**不要**带 `--enable-automation`。
  */
 export async function connectBrowser(options: ConnectBrowserOptions = {}): Promise<Browser> {
-  const ws =
-    options.browserWSEndpoint?.trim() ||
-    process.env.BOSS_BROWSER_WS_ENDPOINT?.trim();
-  if (ws) {
-    return puppeteer.connect({ browserWSEndpoint: ws });
-  }
-  const browserURL = options.browserURL?.trim() || process.env.BOSS_BROWSER_URL?.trim();
-  if (browserURL) {
-    return puppeteer.connect({ browserURL });
-  }
-
   const executablePath =
     options.executablePath?.trim() ||
     process.env.CHROME_PATH?.trim() ||
@@ -121,12 +102,13 @@ export async function connectBrowser(options: ConnectBrowserOptions = {}): Promi
 
   if (!executablePath) {
     throw new Error(
-      '未找到本机 Chrome/Edge：请设置 BOSS_BROWSER_WS_ENDPOINT（连接已有浏览器）或 CHROME_PATH / PUPPETEER_EXECUTABLE_PATH（可执行文件路径）。',
+      '未找到本机 Chrome/Edge：请设置 CHROME_PATH / PUPPETEER_EXECUTABLE_PATH（可执行文件路径）。',
     );
   }
 
   const headless = options.headless ?? process.env.BOSS_BROWSER_HEADLESS === 'true';
   const allowAllCors = options.allowAllCors ?? process.env.BOSS_BROWSER_ALLOW_ALL_CORS === 'true';
+  const disableGpu = process.env.BOSS_BROWSER_DISABLE_GPU === 'true';
 
   return puppeteer.launch({
     executablePath,
@@ -137,6 +119,7 @@ export async function connectBrowser(options: ConnectBrowserOptions = {}): Promi
     defaultViewport: headless ? { width: 1280, height: 800 } : null,
     args: [
       ...LAUNCH_ARGS_LESS_AUTOMATION,
+      ...(disableGpu ? ['--disable-gpu'] : []),
       ...(allowAllCors ? LAUNCH_ARGS_ALLOW_ALL_CORS : []),
       ...(profileDirectory ? [`--profile-directory=${profileDirectory}`] : []),
     ],

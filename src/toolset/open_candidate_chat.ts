@@ -1,6 +1,6 @@
 import type { Page } from 'puppeteer-core';
 import { getPageRef } from '../browser/index.js';
-import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from './login_shared.js';
+import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from '../browser/index.js';
 
 export async function runOpenCandidateChat(
   candidateName: string,

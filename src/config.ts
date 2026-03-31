@@ -26,4 +26,7 @@ export function ensureAppDataLayout(): void {
   if (!existsSync(CACHE_DIR)) {
     mkdirSync(CACHE_DIR, { recursive: true });
   }
+  if (!existsSync(BROWSER_USER_DATA_DIR)) {
+    mkdirSync(BROWSER_USER_DATA_DIR, { recursive: true });
+  }
 }

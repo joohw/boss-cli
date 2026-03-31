@@ -1,11 +1,47 @@
-import { getPageRef } from '../browser/index.js';
-import { probeLoggedInFromPage, sleep } from './login_shared.js';
-import { runOpenChatList } from './open_chat_list.js';
+import type { Browser, Page } from 'puppeteer-core';
+import {
+  ensureAndGetBrowser,
+  ensureBrowserSession,
+  getBrowserRef,
+  getPageRef,
+  probeLoggedInFromPage,
+  setSessionPage,
+  sleep,
+} from '../browser/index.js';
 
 type WaitForLoginOptions = {
   timeoutMs?: number;
   pollMs?: number;
 };
+
+const BOSS_LOGIN_URL = 'https://www.zhipin.com/web/user/?ka=header-login';
+
+async function pickExistingPage(browser: Browser): Promise<Page | null> {
+  const pages = (await browser.pages()).filter((p) => !p.isClosed());
+  if (pages.length === 0) return null;
+
+  const urls = await Promise.all(
+    pages.map((p) => {
+      try {
+        return p.url();
+      } catch {
+        return '';
+      }
+    }),
+  );
+
+  const zhipin = pages.find((p, i) => {
+    const u = urls[i] ?? '';
+    return u.length > 0 && u !== 'about:blank' && u.includes('zhipin.com');
+  });
+  if (zhipin) return zhipin;
+
+  const nonBlank = pages.find((p, i) => {
+    const u = urls[i] ?? '';
+    return u.length > 0 && u !== 'about:blank';
+  });
+  return nonBlank ?? null;
+}
 
 async function waitForBossLogin(opts: Required<WaitForLoginOptions>): Promise<void> {
   const start = Date.now();
@@ -36,22 +72,35 @@ async function waitForBossLogin(opts: Required<WaitForLoginOptions>): Promise<vo
 }
 
 /**
- * 登录（手动）：打开 Boss 沟通列表页，并等待用户在浏览器中完成登录。
+ * 登录（手动）：打开 Boss 登录页，并等待用户在浏览器中完成登录。
  * 成功返回纯文本；失败抛错（由 CLI 统一写入 stderr 并设置退出码）。
  */
 export async function runLogin(options: WaitForLoginOptions = {}): Promise<string> {
   const timeoutMs = options.timeoutMs ?? 120_000;
-  const pollMs = options.pollMs ?? 1_200;
+  const pollMs = options.pollMs ?? 2_000;
 
-  const openText = await runOpenChatList();
-  const page = getPageRef();
-  if (!page) {
-    throw new Error('无法获取页面引用，登录失败。');
+  let browser: Browser | null = null;
+  try {
+    browser = (await ensureAndGetBrowser()) ?? (getBrowserRef() ?? null);
+    if (!browser) {
+      await ensureBrowserSession();
+      browser = getBrowserRef() ?? null;
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`连接浏览器失败：${msg}`);
   }
-  const { loggedIn, url } = await probeLoggedInFromPage(page);
-  if (loggedIn) {
-    return ['✅ 已登录', `当前页：${url}`].join('\n');
+  if (!browser) {
+    throw new Error('无法获取浏览器实例，登录失败。');
   }
+
+  let page: Page | null = getPageRef() ?? null;
+  if (!page || page.isClosed()) {
+    page = (await pickExistingPage(browser)) ?? (await browser.newPage());
+  }
+  setSessionPage(page);
+  await page.bringToFront();
+  await page.goto(BOSS_LOGIN_URL, { waitUntil: 'load', timeout: 60_000 });
 
   console.error(`⏰ 请在浏览器中完成登录（超时 ${Math.round(timeoutMs / 1000)} 秒）`);
   await waitForBossLogin({ timeoutMs, pollMs });
@@ -60,8 +109,6 @@ export async function runLogin(options: WaitForLoginOptions = {}): Promise<strin
   return [
     '✅ 登录成功',
     `当前页：${after.url}`,
-    '',
-    openText.trimEnd(),
   ]
     .filter(Boolean)
     .join('\n');

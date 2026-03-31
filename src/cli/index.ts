@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 // boss-cli 入口：子命令见 cliRouter；业务能力见 toolset（impl*）
 
-import { loadBossEnv } from '../load_env.js';
 import { runCli, isReadlineAbortError } from './cliRouter.js';
 
 async function main() {
-  loadBossEnv();
   const args = process.argv.slice(2);
   try {
     await runCli(args);

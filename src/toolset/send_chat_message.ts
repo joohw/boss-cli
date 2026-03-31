@@ -3,7 +3,7 @@ import {
   createWaitManualLoginRequiredText,
   isBossChatIndexUrl,
   sleep,
-} from './login_shared.js';
+} from '../browser/index.js';
 import { runRequestOfflineResume } from './request_offline_resume.js';
 
 export async function runSendChatMessage(

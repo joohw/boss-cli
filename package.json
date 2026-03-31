@@ -20,7 +20,6 @@
     "dev": "npm run build && node dist/cli/index.js"
   },
   "dependencies": {
-    "dotenv": "^17.3.1",
     "puppeteer-core": "^24.29.1"
   },
   "devDependencies": {

@@ -5,7 +5,7 @@
 import process from 'node:process';
 
 /** 主标题 + 作者（两行均着色，保证在交互入口足够显眼） */
-const BANNER_LINES = ['  boss-cli · Boss 直聘', '  dev by @joo'];
+const BANNER_LINES = ['  boss-cli ·  by @joo  '];
 
 export function printBossInteractiveBanner(): void {
   const useAnsi =
