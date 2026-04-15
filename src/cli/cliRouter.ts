@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { detachBrowserSession } from '../browser/index.js';
 import {
+  implBossSearch,
   implChatAction,
   implLogin,
   implListCandidates,
@@ -144,6 +145,8 @@ function printHelp(): void {
       读取当前职位列表（含开放/待开放/已关闭状态）
   boss jd <name>
       抓取指定职位详情并缓存到项目目录同名 .md
+  boss search
+      从侧边栏进入「深度搜索」并触发一次“立即匹配”
   boss skill
       输出本包 Agent Skill 的说明
   boss skill install  |  boss skill uninstall
@@ -318,6 +321,14 @@ export async function executeCommand(argv: string[]): Promise<string> {
       die(`❌ jd 不支持参数: --${unknownOpts.join(', --')}`);
     }
     return implListPositionsWithOptions({ detail: true, name: detailName });
+  }
+
+  if (cmd === 'search') {
+    const { rest, opts, flags } = parseOpts(tail);
+    if (rest.length > 0 || Object.keys(opts).length > 0 || flags.size > 0) {
+      die('❌ 用法: search');
+    }
+    return implBossSearch();
   }
 
   if (cmd === 'skill') {

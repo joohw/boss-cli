@@ -20,6 +20,31 @@ export type ListOpenPositionsDeps = {
 const BOSS_CHAT_JOB_LIST_URL = 'https://www.zhipin.com/web/chat/job/list';
 const JD_PAGE_SETTLE_MS = { min: 3200, max: 5600 } as const;
 const JD_DETAIL_DEFAULT_WAIT_MS = 10_000;
+const CLICK_JD_BACK_BUTTON_SCRIPT = `(() => {
+  const isVisible = (el) => {
+    if (!(el instanceof HTMLElement)) return false;
+    const st = window.getComputedStyle(el);
+    if (st.display === "none" || st.visibility === "hidden") return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const topNav = document.querySelector(".top-nav");
+  if (!(topNav instanceof HTMLElement)) {
+    return false;
+  }
+  const backBtn = topNav.querySelector(".history-back-container .back-btn");
+  const icon = backBtn?.querySelector("i.iboss-right");
+  if (!(icon instanceof HTMLElement)) {
+    return false;
+  }
+  if (!(backBtn instanceof HTMLElement) || !isVisible(backBtn)) {
+    return false;
+  }
+  backBtn.scrollIntoView({ block: "center", inline: "nearest" });
+  backBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  backBtn.click();
+  return true;
+})()`;
 
 function isBossChatJobListUrl(url: string): boolean {
   try {
@@ -370,6 +395,19 @@ async function waitForJobDetailReady(page: Page, timeoutMs: number): Promise<Job
   throw new Error('等待职位详情表单超时，未找到 .job-edit-container.edit-job');
 }
 
+async function closeJobDetailPanel(page: Page, timeoutMs = 8_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const backClicked = (await page.evaluate(CLICK_JD_BACK_BUTTON_SCRIPT)) as boolean;
+    if (backClicked) {
+      return;
+    }
+    await sleepRandom(160, 360);
+  }
+
+  throw new Error('已读取职位详情，但未找到 top-nav 内可点击的返回按钮（.history-back-container .back-btn > i.iboss-right）。');
+}
+
 function formatJobDetailMarkdown(job: JobListItem, detail: JobDetail): string {
   return [
     `# ${job.title}`,
@@ -467,6 +505,12 @@ export async function runListOpenPositions(
       const outPath = candidates[candidates.length - 1]!;
       const markdown = formatJobDetailMarkdown(targetJob, detail);
       await writeFile(outPath, markdown, 'utf8');
+      try {
+        await closeJobDetailPanel(page);
+      } catch (closeError) {
+        const msg = closeError instanceof Error ? closeError.message : String(closeError);
+        console.warn(`[boss-cli] jd detail close warning: ${msg}`);
+      }
       return markdown;
     });
   } catch (e) {

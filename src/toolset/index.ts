@@ -10,6 +10,7 @@ import {
 import { runSendChatMessage, type SendAction } from './send.js';
 import { implSkillCli } from './skill.js';
 import { withChatPage } from '../browser/index.js';
+import { runBossSearch } from './search.js';
 
 export type { SendAction } from './send.js';
 export type { ChatPageAction };
@@ -66,4 +67,8 @@ export async function implListPositionsWithOptions(opts: {
 
 export async function implSkill(tail: string[]): Promise<string> {
   return implSkillCli(tail);
+}
+
+export async function implBossSearch(): Promise<string> {
+  return runBossSearch();
 }
