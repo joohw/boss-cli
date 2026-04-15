@@ -1,6 +1,8 @@
 /**
  * 浏览器：CDP 连接与会话（统一出口）。
  */
+export * from './timing.js';
+export * from './human_delay.js';
 export {
   connectBrowser,
   createPageCDPSession,

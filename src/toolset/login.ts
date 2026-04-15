@@ -1,5 +1,6 @@
 import type { Browser, Page } from 'puppeteer-core';
 import {
+  detachBrowserSession,
   disconnectBrowserSession,
   ensureAndGetBrowser,
   ensureBrowserSession,
@@ -78,11 +79,14 @@ export async function runLogin(): Promise<string> {
   await page.bringToFront();
   await page.goto(BOSS_LOGIN_URL, { waitUntil: 'load', timeout: 60_000 });
 
-  // 不做任何登录校验：只把浏览器打开到登录页，后续命令会复用该会话。
+  await detachBrowserSession();
+
+  // 不做任何登录校验：只把浏览器打开到登录页；立即断开 CDP，CLI 不与浏览器进程长期绑定。
   return [
     '✅ 已打开登录页',
     '请在浏览器中自行完成登录（扫码/验证码/人机验证等）。',
-    '登录完成后直接在终端运行其它命令即可（例如：boss list-candidates / boss open-chat ...）。',
+    'CLI 已与浏览器断开连接（窗口可继续操作）。',
+    '登录完成后请手动关闭浏览器窗口',
     `登录页：${BOSS_LOGIN_URL}`,
   ].join('\n');
 }

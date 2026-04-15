@@ -1,3 +1,4 @@
+import type { ChildProcess } from 'node:child_process';
 import type { Browser, Page } from 'puppeteer-core';
 import { connectBrowser } from './cdp_browser.js';
 let browserRef: Browser | null = null;
@@ -76,7 +77,6 @@ async function establishSession(): Promise<void> {
   browserRef = b;
   attachDisconnectedHandler(b);
   pageRef = await pickOrCreatePage(b);
-  console.error('[boss-cli] 已连接浏览器，当前页:', pageRef.url());
 }
 
 /**
@@ -164,14 +164,31 @@ export async function disconnectBrowserSession(): Promise<void> {
   pageRef = null;
 }
 
+function unrefBrowserChildProcess(proc: ChildProcess | null | undefined): void {
+  if (!proc) return;
+  try {
+    proc.unref();
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * 仅断开与浏览器的 CDP 连接，但不主动关闭浏览器进程。
  * 用于 `boss login` 这类“需要用户继续在浏览器里操作”的场景：
  * CLI 可以立刻退出，而浏览器窗口仍保留给用户完成登录。
+ *
+ * 必须在 disconnect 后对 Chrome 子进程 `unref`，否则 Node 会因子进程仍存活而无法退出。
  */
 export async function detachBrowserSession(): Promise<void> {
   const b = browserRef;
   if (!b) return;
+  let proc: ChildProcess | null | undefined;
+  try {
+    proc = typeof b.process === 'function' ? b.process() : undefined;
+  } catch {
+    proc = undefined;
+  }
   try {
     b.removeAllListeners('disconnected');
     // Puppeteer 支持 disconnect：断开连接但保留浏览器进程
@@ -190,6 +207,7 @@ export async function detachBrowserSession(): Promise<void> {
       /* ignore */
     }
   }
+  unrefBrowserChildProcess(proc ?? null);
   browserRef = null;
   pageRef = null;
 }

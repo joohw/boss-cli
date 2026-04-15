@@ -1,5 +1,13 @@
 import type { Page } from 'puppeteer-core';
-import { createWaitManualLoginRequiredText, isBossChatIndexUrl, withChatPage } from '../browser/index.js';
+import {
+  createWaitManualLoginRequiredText,
+  isBossChatIndexUrl,
+  LIST_FILTER_GAP_MS,
+  LIST_MIN_BEFORE_EMPTY_OK_MS,
+  LIST_POLL_MS,
+  sleepRandom,
+  withChatPage,
+} from '../browser/index.js';
 
 type CandidateItem = {
   name: string;
@@ -9,13 +17,9 @@ type CandidateItem = {
   unreadCount: number;
 };
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function waitForCandidateListSettled(
   page: Page,
-  opts: { timeoutMs: number; pollMs: number; minMsBeforeEmptyOk: number },
+  opts: { timeoutMs: number; pollMsMin: number; pollMsMax: number; minMsBeforeEmptyOk: number },
 ): Promise<void> {
   const start = Date.now();
   let prev = -1;
@@ -39,7 +43,7 @@ async function waitForCandidateListSettled(
         return;
       }
     }
-    await new Promise((r) => setTimeout(r, opts.pollMs));
+    await sleepRandom(opts.pollMsMin, opts.pollMsMax);
   }
 }
 
@@ -66,7 +70,6 @@ export async function runGetCandidateList(
     return await withChatPage(async (page) => {
       const currentUrl = page.url();
       if (!isBossChatIndexUrl(currentUrl)) {
-        console.error(`[boss-cli] candidate_list not_chat_list url=${currentUrl}`);
         throw new Error('请先进入聊天列表页（/web/chat/index）再获取候选人列表。');
       }
 
@@ -80,18 +83,19 @@ export async function runGetCandidateList(
           const hasItems = document.querySelectorAll(".geek-item").length > 0;
           return !!list || hasItems;
         })()`,
-        { timeout: 8_000 },
+        { timeout: 12_000 },
       );
 
       await clickChatFilterTabAll(page);
-      await delay(520);
-      await delay(450);
+      await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
+      await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
       await clickChatFilterTabAll(page);
-      await delay(520);
+      await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
       await waitForCandidateListSettled(page, {
-        timeoutMs: 10_000,
-        pollMs: 220,
-        minMsBeforeEmptyOk: 2_800,
+        timeoutMs: 14_000,
+        pollMsMin: LIST_POLL_MS.min,
+        pollMsMax: LIST_POLL_MS.max,
+        minMsBeforeEmptyOk: LIST_MIN_BEFORE_EMPTY_OK_MS,
       });
 
       const items = (await page.evaluate(
@@ -116,9 +120,6 @@ export async function runGetCandidateList(
       const candidates = items.filter((it) => it.name) as CandidateItem[];
       const withUnread = candidates.filter((it) => it.unreadCount > 0).length;
       const visible = unreadOnly ? candidates.filter((it) => it.unreadCount > 0) : candidates;
-      console.error(
-        `[boss-cli] candidate_list extracted=${candidates.length} withUnreadBadge=${withUnread}`,
-      );
       const lines = visible.map((it, idx) => {
         const base = `${idx + 1}. ${it.name}${it.job ? `｜${it.job}` : ''}`;
         const meta = [
@@ -130,15 +131,13 @@ export async function runGetCandidateList(
           .join('｜');
         return meta ? `${base}｜${meta}` : base;
       });
-      const logText = lines.length > 0 ? lines.join('\n') : '(empty)';
-      console.error(`[boss-cli] candidate_list count=${visible.length}\n${logText}`);
       const previewText =
         lines.length > 0 ? `候选人明细：\n${lines.join('\n')}` : '候选人明细：暂无。';
 
       return [
         unreadOnly
-          ? `已获取未读候选人（全部），共 ${visible.length} 条；原始列表共 ${candidates.length} 条；其中 ${withUnread} 人有未读角标。`
-          : `已获取候选人列表（全部），共 ${candidates.length} 条；其中 ${withUnread} 人有未读角标。`,
+          ? `未读筛选：共 ${visible.length} 人（全部列表 ${candidates.length} 人中有未读角标者 ${withUnread} 人）。`
+          : `沟通列表共 ${candidates.length} 人，其中 ${withUnread} 人有未读消息。`,
         previewText,
       ]
         .filter(Boolean)
@@ -146,7 +145,6 @@ export async function runGetCandidateList(
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error(`[boss-cli] candidate_list error: ${message}`);
     if (e instanceof Error) {
       if (e.message.includes('浏览器会话尚未初始化')) {
         throw new Error(createWaitManualLoginRequiredText('获取候选人列表'));

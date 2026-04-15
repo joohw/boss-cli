@@ -4,7 +4,7 @@
  */
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { detachBrowserSession, disconnectBrowserSession } from '../browser/index.js';
+import { detachBrowserSession } from '../browser/index.js';
 import { CACHE_DIR } from '../config.js';
 import {
   implLogin,
@@ -13,6 +13,7 @@ import {
   implListPositions,
   implOpenChat,
   implSendMessage,
+  type SendAction,
 } from '../toolset/index.js';
 import { printBossInteractiveBanner } from './banner.js';
 
@@ -28,46 +29,27 @@ function envTruthy(name: string): boolean {
   return v === '1' || v === 'true' || v === 'yes' || v === 'y';
 }
 
-function shouldRunHeadful(): boolean {
-  return (
-    envTruthy('bosscliheadful') ||
-    envTruthy('BOSSCLIHEADFUL') ||
-    envTruthy('BOSSCLI_HEADFUL') ||
-    envTruthy('BOSS_CLI_HEADFUL')
-  );
+/** 默认有头；仅当环境变量为真时启用无头（与 `connectBrowser` 读取的 `BOSS_BROWSER_HEADLESS` 一致）。 */
+function shouldRunHeadless(): boolean {
+  return envTruthy('BOSS_BROWSER_HEADLESS');
 }
 
 function configureHeadlessForCommand(cmd: string): void {
   if (cmd === 'login') {
-    // 登录必须可见：方便扫码/人机验证/手动操作
     process.env.BOSS_BROWSER_HEADLESS = 'false';
     return;
   }
-  process.env.BOSS_BROWSER_HEADLESS = shouldRunHeadful() ? 'false' : 'true';
+  process.env.BOSS_BROWSER_HEADLESS = shouldRunHeadless() ? 'true' : 'false';
 }
 
-function shouldAutoCloseBrowser(): boolean {
-  return envTruthy('BOSS_BROWSER_AUTO_CLOSE');
-}
-
-function hasExplicitAutoCloseEnv(): boolean {
-  const v = (process.env.BOSS_BROWSER_AUTO_CLOSE ?? '').trim();
-  return v.length > 0;
-}
-
-async function cleanupAfterCommand(cmd: string, nonInteractive: boolean): Promise<void> {
-  // 约定：一次性命令默认自动清理，确保进程能退出；交互模式默认不清理（便于持续复用会话）。
-  const autoClose = hasExplicitAutoCloseEnv() ? shouldAutoCloseBrowser() : nonInteractive;
-  if (!autoClose) return;
-
-  // login 需要用户继续在浏览器里操作：只断开连接，不关浏览器窗口
-  if (cmd === 'login') {
-    await detachBrowserSession().catch(() => {});
+/**
+ * 命令结束时不关闭浏览器进程，只 detach CDP（一次性命令）或保持连接（交互模式），便于窗口继续操作、下次 boss 重连。
+ */
+async function cleanupAfterCommand(_cmd: string, nonInteractive: boolean): Promise<void> {
+  if (!nonInteractive) {
     return;
   }
-
-  // 其它命令：关闭浏览器会话与进程，避免残留句柄导致 CLI 不退出
-  await disconnectBrowserSession().catch(() => {});
+  await detachBrowserSession().catch(() => {});
 }
 
 function die(msg: string): never {
@@ -117,6 +99,22 @@ function splitShellLine(line: string): string[] {
   return out;
 }
 
+/** 短命令为主；保留旧长名作为别名，避免已有脚本失效 */
+function normalizeSubcommand(cmd: string): string {
+  switch (cmd) {
+    case 'list-candidates':
+      return 'list';
+    case 'open-chat':
+      return 'chat';
+    case 'send-message':
+      return 'send';
+    case 'list-positions':
+      return 'jd';
+    default:
+      return cmd;
+  }
+}
+
 function printHelp(): void {
   console.error(`boss-cli — Boss 直聘浏览器自动化（纯 CLI，无 Agent 运行时）
 
@@ -127,15 +125,17 @@ function printHelp(): void {
       显示本帮助
   boss login
       打开登录页（需要在浏览器中自行完成登录）
-  boss list-candidates
-      读取「全部」聊天列表候选人
-      --unread 仅显示未读（角标>0）
-  boss open-chat <姓名> [--strict]
+  boss list [--unread]
+      读取「全部」聊天列表候选人；--unread 仅显示未读（角标>0）
+  boss chat <姓名> [--strict]
       打开指定联系人会话；默认包含匹配，--strict 为精确匹配
-  boss send-message --text <内容> [--also-request-resume]
-      在聊天输入框发送消息；-t 同 --text
-  boss list-positions
-      读取本地 ~/.boss-cli/jd 目录下的岗位 Markdown（Windows 为 %USERPROFILE%\.boss-cli\jd）
+  boss send [--text <内容>] [-t <内容>] [--action <操作>]
+      --text 与 --action 可同时使用；先发消息再执行 action，中间有默认随机间隔
+      --action: request-resume | agree-resume | confuse-resume（confuse-resume=拒绝附件）；须至少 text 或 action 其一
+  boss jd
+      读取本地 ~/.boss-cli/jd 目录下的岗位 Markdown（Windows 为 %USERPROFILE%\\.boss-cli\\jd）
+
+旧名仍可用：list-candidates、open-chat、send-message、list-positions。
 
 成功时 stdout 为纯文本；业务失败时进程退出码为 1。
 
@@ -208,7 +208,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
     die('❌ 空命令');
   }
 
-  const cmd = argv[0];
+  const cmd = normalizeSubcommand(argv[0]);
   const tail = argv.slice(1);
   configureHeadlessForCommand(cmd);
 
@@ -216,7 +216,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
     return implLogin();
   }
 
-  if (cmd === 'list-candidates') {
+  if (cmd === 'list') {
     const { flags } = parseOpts(tail);
     if (flags.has('unread')) {
       return implListUnreadCandidates();
@@ -224,35 +224,46 @@ export async function executeCommand(argv: string[]): Promise<string> {
     return implListCandidates();
   }
 
-  if (cmd === 'open-chat') {
+  if (cmd === 'chat') {
     const { rest, flags } = parseOpts(tail);
     const nameArg = rest[0]?.trim();
     if (!nameArg) {
-      die('❌ 用法: open-chat <姓名> [--strict]');
+      die('❌ 用法: chat <姓名> [--strict]');
     }
     // 默认模糊匹配（包含）；仅在指定 --strict 时做精确匹配
     const exact = flags.has('strict');
     return implOpenChat(nameArg, exact);
   }
 
-  if (cmd === 'send-message') {
-    const { opts, flags } = parseOpts(tail);
+  if (cmd === 'send') {
+    const { opts } = parseOpts(tail);
     const text = opts.text?.trim() || opts.t?.trim() || '';
-    const alsoRequestResume =
-      flags.has('also-request-resume') ||
-      opts['also-request-resume'] === 'true' ||
-      opts.alsoRequestResume === 'true';
-    if (!text) {
-      die('❌ 用法: send-message --text <消息内容> [--also-request-resume]');
+    const raw = (opts.action ?? '').trim().toLowerCase();
+    const actionMap: Record<string, SendAction> = {
+      'request-resume': 'request-resume',
+      'agree-resume': 'agree-resume',
+      'confuse-resume': 'confuse-resume',
+    };
+    let action: SendAction | undefined;
+    if (raw) {
+      action = actionMap[raw];
+      if (!action) {
+        die(`❌ 未知 --action “${raw}”，可选：request-resume | agree-resume | confuse-resume`);
+      }
     }
-    return implSendMessage(text, alsoRequestResume);
+    if (!text && !action) {
+      die(
+        '❌ 用法: send [--text <消息>] [-t <消息>] [--action request-resume|agree-resume|confuse-resume]（至少其一）',
+      );
+    }
+    return implSendMessage({ text, action });
   }
 
-  if (cmd === 'list-positions') {
+  if (cmd === 'jd') {
     return implListPositions();
   }
 
-  die(`❌ 未知命令 “${cmd}”。输入 help 查看用法。`);
+  die(`❌ 未知命令 “${argv[0]}”。输入 help 查看用法。`);
 }
 
 export async function runOneCommand(argv: string[]): Promise<void> {

@@ -1,6 +1,8 @@
 import type { Browser, Page } from 'puppeteer-core';
 import { ensureBrowserSession, getBrowserRef, getPageRef, setSessionPage } from './browser_session.js';
-import { BOSS_CHAT_INDEX_URL, isBossChatIndexUrl, sleep } from './auth.js';
+import { BOSS_CHAT_INDEX_URL, isBossChatIndexUrl } from './auth.js';
+import { CHAT_GOTO_SETTLE_MS, CONTEXT_DESTROY_RETRY_MS } from './human_delay.js';
+import { sleepRandom } from './timing.js';
 
 const SHOULD_DISABLE_JS =
   process.env.BOSS_BROWSER_DISABLE_JS === 'true' || process.env.BOSS_BROWSER_DISABLE_JS === '1';
@@ -77,7 +79,7 @@ export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Pro
       if (!isBossChatIndexUrl(currentUrl)) {
         await page.goto(BOSS_CHAT_INDEX_URL, { waitUntil: 'load', timeout: 60_000 });
         // 等待页面渲染稳定（SPA/异步接口），避免紧接着查询元素时拿不到
-        await sleep(2_000);
+        await sleepRandom(CHAT_GOTO_SETTLE_MS.min, CHAT_GOTO_SETTLE_MS.max);
       }
 
       return await callback(page);
@@ -85,7 +87,7 @@ export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Pro
       lastErr = e;
       if (attempt < maxAttempts - 1 && isContextDestroyed(e)) {
         // Boss 页面偶发跳转/重渲染会销毁执行上下文；短暂等待并重试一次即可。
-        await sleep(600);
+        await sleepRandom(CONTEXT_DESTROY_RETRY_MS.min, CONTEXT_DESTROY_RETRY_MS.max);
         continue;
       }
       throw e;

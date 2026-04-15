@@ -3,8 +3,10 @@ import { runLogin } from './login.js';
 import { runGetCandidateList } from './list_candidates.js';
 import { runListOpenPositions } from './list_positions.js';
 import { runOpenCandidateChat } from './open_chat.js';
-import { runSendChatMessage } from './send_message.js';
+import { runSendChatMessage, type SendAction } from './send_message.js';
 import { withChatPage } from '../browser/index.js';
+
+export type { SendAction } from './send_message.js';
 
 export async function implLogin(): Promise<string> {
   return runLogin();
@@ -22,11 +24,14 @@ export async function implOpenChat(candidateName: string, exact: boolean): Promi
   return withChatPage(async (page) => runOpenCandidateChat(page, candidateName, exact));
 }
 
-export async function implSendMessage(
-  text: string,
-  alsoRequestResume: boolean,
-): Promise<string> {
-  return runSendChatMessage(text, alsoRequestResume);
+export async function implSendMessage(params: {
+  text: string;
+  action?: SendAction;
+}): Promise<string> {
+  return runSendChatMessage({
+    text: params.text || undefined,
+    action: params.action,
+  });
 }
 
 export async function implListPositions(): Promise<string> {

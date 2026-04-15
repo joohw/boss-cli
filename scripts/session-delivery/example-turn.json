@@ -1,0 +1,25 @@
+{
+  "request_id": "e9d3dde0-884c-4737-be0f-780601212e0a",
+  "start_time": "2026-03-12T19:04:49.443695",
+  "end_time": "2026-03-12T19:04:59.113766",
+  "session_id": "session_240fcd18-61b1-4e9e-92eb-51eb40c085c3",
+  "model": "anthropic/claude-sonnet-4-6",
+  "user_agent": "claude-cli/2.1.74 (external, cli)",
+  "call_type": "anthropic_messages",
+  "status": "success",
+  "tools": [],
+  "system": [{ "type": "text", "text": "You are a helpful assistant." }],
+  "messages": [
+    {
+      "role": "user",
+      "content": [{ "type": "text", "text": "你好" }]
+    }
+  ],
+  "response": {
+    "response_id": "e9d3dde0-884c-4737-be0f-780601212e0a",
+    "model": "claude-sonnet-4-6",
+    "session_id": "session_240fcd18-61b1-4e9e-92eb-51eb40c085c3",
+    "choices": [{ "type": "message", "role": "assistant", "content": [] }],
+    "usage": { "input_tokens": 10, "output_tokens": 20 }
+  }
+}

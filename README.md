@@ -46,11 +46,12 @@ npm run build
 | `boss`                                                       | 交互模式                              |
 | `boss help`                                                  | 打印帮助                              |
 | `boss login`                                                 | 打开登录页（不校验登录状态；需自行完成登录）   |
-| `boss list-candidates [--unread]`                           | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
-| `boss open-chat <姓名> [--strict]`                            | 打开指定联系人会话；默认包含匹配，`--strict` 为精确匹配 |
-| `boss send-message --text <内容> [--also-request-resume]`      | 发送消息；可选在发送后触发「求简历」                |
-| `boss list-positions`                                        | 读取本地 `~/.boss-cli/jd` 目录下的岗位 Markdown |
+| `boss list [--unread]`                                       | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
+| `boss chat <姓名> [--strict]`                                 | 打开指定联系人会话；默认包含匹配，`--strict` 为精确匹配 |
+| `boss send [--text <内容>] [--action <…>]` | 可只发消息、只执行 action，或**两者同次**（先发消息再 action，步骤间默认随机间隔）；`request-resume` \| `agree-resume` \| `confuse-resume`（拒绝附件） |
+| `boss jd`                                                    | 读取本地 `~/.boss-cli/jd` 目录下的岗位 Markdown |
 
+旧名仍可用：`list-candidates`、`open-chat`、`send-message`、`list-positions`。
 
 **交互模式**
 
@@ -65,34 +66,26 @@ npm run build
 
 ---
 
-## 浏览器是否自动关闭
+## 浏览器生命周期
 
-默认情况下，`boss` **不会**在命令执行结束后关闭浏览器窗口（方便你继续手动操作页面）。
+命令结束（含一次性子命令）时**不会**关闭浏览器窗口：CLI 只断开与浏览器的 CDP 连接，便于 Node 进程退出，浏览器进程仍保留；需要时请自行关闭窗口。
 
-如果你希望命令执行完后**自动关闭**由本工具启动/连接的浏览器进程（避免残留进程），请在运行前设置环境变量：
-
-```bash
-# macOS/Linux
-export BOSS_BROWSER_AUTO_CLOSE=1
-
-# Windows PowerShell
-$env:BOSS_BROWSER_AUTO_CLOSE="1"
-```
+交互模式（无参数 `boss`）退出时同样**不会**关闭浏览器。
 
 ---
 
 ## Headless / Headful（是否显示浏览器窗口）
 
-- **除 `boss login` 之外**：默认 **headless**（不显示窗口）。
-- **`boss login`**：强制 **headful**（显示窗口，便于你扫码/验证/手动登录）。
-- 如果你希望其它命令也显示窗口：设置环境变量 `bosscliheadful=1`。
+- 默认 **headful**（显示浏览器窗口）。
+- **`boss login`**：同样为有头（便于扫码/验证/手动登录）。
+- 若希望其它命令**无头**运行：设置环境变量 `BOSS_BROWSER_HEADLESS=true`（或 `1` / `yes`）。
 
 ```bash
 # macOS/Linux
-export bosscliheadful=1
+export BOSS_BROWSER_HEADLESS=true
 
 # Windows PowerShell
-$env:bosscliheadful="1"
+$env:BOSS_BROWSER_HEADLESS="true"
 ```
 
 ---

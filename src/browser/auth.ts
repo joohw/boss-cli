@@ -1,4 +1,6 @@
 import type { Page } from 'puppeteer-core';
+import { sleepRandom } from './timing.js';
+import { PROBE_LOGIN_POLL_MS } from './human_delay.js';
 
 /** Boss 直聘首页 */
 export const BOSS_ZHIPIN_HOME = 'https://www.zhipin.com/';
@@ -40,24 +42,6 @@ export function isWebUserLoginUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new Error('Aborted'));
-      return;
-    }
-    const id = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(id);
-      reject(new Error('Aborted'));
-    };
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
 }
 
 export type ProbeLoggedInSignals = {
@@ -145,7 +129,6 @@ export async function probeLoggedInFromPage(
   }
 
   const maxAttempts = 25;
-  const delayMs = 400;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const s = await probeLoggedInSignals(page);
     if (s.hasNickname || s.hasLogoutHint) {
@@ -155,7 +138,7 @@ export async function probeLoggedInFromPage(
       return { loggedIn: false, url };
     }
     if (attempt < maxAttempts - 1) {
-      await sleep(delayMs);
+      await sleepRandom(PROBE_LOGIN_POLL_MS.min, PROBE_LOGIN_POLL_MS.max);
     }
   }
 
