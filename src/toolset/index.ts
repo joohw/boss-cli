@@ -54,6 +54,16 @@ export async function implListPositions(): Promise<string> {
   return runListOpenPositions();
 }
 
+export async function implListPositionsWithOptions(opts: {
+  detail?: boolean;
+  name?: string;
+}): Promise<string> {
+  return runListOpenPositions({
+    detail: opts.detail,
+    detailName: opts.name,
+  });
+}
+
 export async function implSkill(tail: string[]): Promise<string> {
   return implSkillCli(tail);
 }

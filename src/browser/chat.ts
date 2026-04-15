@@ -1,7 +1,6 @@
 import type { Browser, Page } from 'puppeteer-core';
 import { ensureBrowserSession, getBrowserRef, getPageRef, setSessionPage } from './browser_session.js';
-import { BOSS_CHAT_INDEX_URL, isBossChatIndexUrl } from './auth.js';
-import { CHAT_GOTO_SETTLE_MS, CONTEXT_DESTROY_RETRY_MS } from './human_delay.js';
+import { CONTEXT_DESTROY_RETRY_MS } from './human_delay.js';
 import { sleepRandom } from './timing.js';
 
 const SHOULD_DISABLE_JS =
@@ -34,9 +33,67 @@ async function pickExistingPage(browser: Browser): Promise<Page | null> {
   return nonBlank ?? null;
 }
 
+type MenuListSnapshot = {
+  exists: boolean;
+  signature: string;
+};
+
+function normalizeMenuText(raw: string | null | undefined): string {
+  return (raw ?? '').replace(/\s+/g, ' ').trim();
+}
+
+async function readMenuListSnapshot(page: Page): Promise<MenuListSnapshot> {
+  return (await page.evaluate(`(() => {
+    const root = document.querySelector(".menu-list");
+    if (!root) {
+      return { exists: false, signature: "" };
+    }
+    const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
+    const links = Array.from(root.querySelectorAll("dl > dt > a"));
+    const entries = links.map((a) => {
+      const href = a.getAttribute("href") ?? "";
+      const labelNode = a.querySelector(".menu-item-content span");
+      const label = norm(labelNode?.textContent || a.textContent || "");
+      return label + "::" + href;
+    });
+    return { exists: true, signature: entries.join("|") };
+  })()`)) as MenuListSnapshot;
+}
+
+async function ensureMenuListStableAfterLoad(page: Page): Promise<void> {
+  await page.waitForFunction(
+    `(() => document.readyState === "complete" || document.readyState === "interactive")()`,
+    { timeout: 12_000 },
+  );
+
+  const first = await readMenuListSnapshot(page);
+  if (!first.exists) {
+    throw new Error('未检测到 .menu-list，当前页面可能未登录或未进入 Boss 主界面。');
+  }
+  if (!normalizeMenuText(first.signature)) {
+    throw new Error('检测到 .menu-list 但菜单内容为空，当前页面状态异常。');
+  }
+
+  const stableWindowMs = 3_000;
+  const pollMs = 300;
+  const deadline = Date.now() + stableWindowMs;
+  const expected = first.signature;
+
+  while (Date.now() < deadline) {
+    await sleepRandom(pollMs, pollMs);
+    const snap = await readMenuListSnapshot(page);
+    if (!snap.exists) {
+      throw new Error('页面中的 .menu-list 在 3 秒稳定检测内消失，疑似未登录或页面仍在跳转。');
+    }
+    if (snap.signature !== expected) {
+      throw new Error('页面中的 .menu-list 在 3 秒稳定检测内发生变化，疑似页面仍在重定向或刷新。');
+    }
+  }
+}
+
 /**
- * 获取 chat page 来执行回调：确保已启动浏览器并导航到 Boss 沟通列表页（/web/chat/index）。
- * 仅负责“浏览器状态/导航”，不在这里做登录成功与否的业务判断。
+ * 获取 chat page 来执行回调：确保会话可用，并做菜单稳定性检测。
+ * 不再主动导航到任何固定路由（如 `/web/chat/index`）；具体业务页由调用方自行要求。
  */
 export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
   const isContextDestroyed = (e: unknown): boolean => {
@@ -67,20 +124,7 @@ export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Pro
       if (SHOULD_DISABLE_JS) {
         await page.setJavaScriptEnabled(false);
       }
-
-      // 如果当前已在沟通列表页，则不刷新页面，避免打断用户状态（滚动位置/选中会话等）。
-      const currentUrl = (() => {
-        try {
-          return page.url();
-        } catch {
-          return '';
-        }
-      })();
-      if (!isBossChatIndexUrl(currentUrl)) {
-        await page.goto(BOSS_CHAT_INDEX_URL, { waitUntil: 'load', timeout: 60_000 });
-        // 等待页面渲染稳定（SPA/异步接口），避免紧接着查询元素时拿不到
-        await sleepRandom(CHAT_GOTO_SETTLE_MS.min, CHAT_GOTO_SETTLE_MS.max);
-      }
+      await ensureMenuListStableAfterLoad(page);
 
       return await callback(page);
     } catch (e) {

@@ -238,8 +238,7 @@ export type ConnectBrowserOptions = {
  *
  * 若以上均未设置，会按系统尝试常见 Chrome / Edge / Chromium 安装路径。
  * - `BOSS_BROWSER_HEADLESS` — 设为 `true` 时启用无头；默认**有界面**。
- * - `BOSS_BROWSER_VIEWPORT_WIDTH` — 默认 `1280`（CSS 像素）
- * - `BOSS_BROWSER_VIEWPORT_HEIGHT` — 默认 `1200`（常规浏览更接近桌面窗口高度）
+ * - `BOSS_BROWSER_VIEWPORT_WIDTH` / `BOSS_BROWSER_VIEWPORT_HEIGHT` — 启动时显式指定视口；未设置时不覆盖浏览器窗口尺寸
  */
 /** 启动浏览器时的默认视口（与环境变量一致）；截图恢复时 `viewport()` 为 null 也可用其兜底。 */
 export function defaultViewportFromEnv(): { width: number; height: number } {
@@ -249,6 +248,16 @@ export function defaultViewportFromEnv(): { width: number; height: number } {
     width: Number.isFinite(w) && w > 0 ? w : 1280,
     height: Number.isFinite(h) && h > 0 ? h : 1200,
   };
+}
+
+/** 仅在显式配置了视口环境变量时返回启动视口；否则返回 null，不覆盖浏览器实际窗口尺寸。 */
+function launchViewportFromEnv(): { width: number; height: number } | null {
+  const rawW = process.env.BOSS_BROWSER_VIEWPORT_WIDTH?.trim() ?? '';
+  const rawH = process.env.BOSS_BROWSER_VIEWPORT_HEIGHT?.trim() ?? '';
+  if (!rawW && !rawH) {
+    return null;
+  }
+  return defaultViewportFromEnv();
 }
 
 export async function connectBrowser(options: ConnectBrowserOptions = {}): Promise<Browser> {
@@ -280,6 +289,22 @@ export async function connectBrowser(options: ConnectBrowserOptions = {}): Promi
 
   clearSpawnedChromeProcessRef();
   lastChromeLaunchHeadless = !!headless;
+
+  /**
+   * 优先直连已存在实例：若当前 user-data-dir 下已有开启远程调试的浏览器，
+   * 直接 connect，避免每次都 spawn 新进程导致额外空白窗口/闪窗。
+   */
+  const existingWsUrl = await readDevToolsEndpointFromUserDataDir(userDataDir, 700);
+  if (existingWsUrl) {
+    try {
+      return await puppeteer.connect({
+        browserWSEndpoint: existingWsUrl,
+        defaultViewport: launchViewportFromEnv(),
+      });
+    } catch {
+      // 端口文件可能陈旧或实例刚退出，回退到 spawn + connect。
+    }
+  }
 
   const userArgs = [
     ...LAUNCH_ARGS_LESS_AUTOMATION,
@@ -346,7 +371,7 @@ export async function connectBrowser(options: ConnectBrowserOptions = {}): Promi
   try {
     return await puppeteer.connect({
       browserWSEndpoint: wsUrl,
-      defaultViewport: defaultViewportFromEnv(),
+      defaultViewport: launchViewportFromEnv(),
     });
   } catch (e) {
     try {

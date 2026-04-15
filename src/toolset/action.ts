@@ -9,9 +9,11 @@ import {
 } from '../browser/index.js';
 import { ensureAppDataLayout, RESUME_SCREENSHOTS_DIR } from '../config.js';
 import { isResumeOcrEnabled, ocrResumePngToTextFile } from '../ocr/index.js';
+import { runGetCommunicationHistory } from './chat.js';
 
 /** 在线简历截图前临时拉高的视口高度（CSS px）。可用 `BOSS_RESUME_SCREENSHOT_VIEWPORT_HEIGHT` 覆盖。 */
 const ONLINE_RESUME_SNAPSHOT_VIEWPORT_HEIGHT_PX = 5000;
+type IncomingCardBtn = 'agree' | 'refuse';
 
 function safeResumeFileBase(name: string): string {
   const t = name.replace(/[/\\?%*:|"<>]/g, '_').trim().slice(0, 64);
@@ -154,25 +156,25 @@ async function updateCandidateRemark(page: Page, remarkText: string): Promise<st
   await ensureInCandidateChat(page, '备注');
 
   const openedMoreMenu = (await page.evaluate(`(() => {
-    function norm(v) {
-      return (v ?? "").replace(/\\s+/g, "").trim();
+    function isVisible(el) {
+      if (!(el instanceof HTMLElement)) return false;
+      const st = window.getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden") return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
     }
-    const items = Array.from(
-      document.querySelectorAll(".operate-exchange-right .operate-icon-item, .operate-icon-item"),
-    );
-    const more = items.find((el) => {
-      const t = norm(el.querySelector(".operate-btn")?.textContent || el.textContent || "");
-      return t.includes("更多");
-    });
-    if (!more) return false;
-    const btn = more.querySelector(".operate-btn");
-    const host = btn || more;
+    const popovers = Array.from(document.querySelectorAll(".rightbar-item .popover"))
+      .filter((el) => !!el.querySelector(".popover-wrap.rightbar-more-tooltip"));
+    if (popovers.length === 0) return false;
+    const popover = popovers[popovers.length - 1];
+    const host = popover.querySelector(".icon") || popover;
     host.scrollIntoView({ block: "center", inline: "nearest" });
     host.click();
-    return true;
+    const wrap = popover.querySelector(".popover-wrap.rightbar-more-tooltip");
+    return !!wrap && isVisible(wrap) || !!wrap;
   })()`)) as boolean;
   if (!openedMoreMenu) {
-    throw new Error('未找到“更多”按钮，无法打开备注菜单。');
+    throw new Error('未找到右侧“更多”按钮（rightbar-more），无法打开备注菜单。');
   }
 
   await sleepRandom(120, 300);
@@ -188,7 +190,11 @@ async function updateCandidateRemark(page: Page, remarkText: string): Promise<st
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     }
-    const items = Array.from(document.querySelectorAll(".more-list .item"))
+    const wraps = Array.from(document.querySelectorAll(".popover-wrap.rightbar-more-tooltip"))
+      .filter((el) => isVisible(el));
+    if (wraps.length === 0) return false;
+    const wrap = wraps[wraps.length - 1];
+    const items = Array.from(wrap.querySelectorAll(".more-list .item"))
       .filter((el) => isVisible(el));
     const remark = items.find((el) => norm(el.textContent).includes("备注"));
     if (!remark) return false;
@@ -207,25 +213,31 @@ async function updateCandidateRemark(page: Page, remarkText: string): Promise<st
   if (!textarea) {
     throw new Error('已点击“备注”，但未出现备注输入弹窗。');
   }
+  await sleepRandom(260, 520);
 
-  const filled = (await page.evaluate(
-    `((text, selector) => {
+  await page.click(textareaSel);
+  await sleepRandom(80, 180);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyA');
+  await page.keyboard.up('Control');
+  await sleepRandom(50, 140);
+  await page.keyboard.press('Backspace');
+  await sleepRandom(120, 260);
+  await page.type(textareaSel, nextRemark, { delay: 24 });
+  await sleepRandom(200, 360);
+
+  const filledOk = (await page.evaluate(
+    `((selector, expected) => {
       const el = document.querySelector(selector);
       if (!(el instanceof HTMLTextAreaElement)) return false;
-      el.focus();
-      el.value = text;
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-      return true;
+      return (el.value ?? "").trim() === expected;
     })`,
-    nextRemark,
     textareaSel,
+    nextRemark,
   )) as boolean;
-  if (!filled) {
-    throw new Error('未找到备注输入框，无法填写备注。');
+  if (!filledOk) {
+    throw new Error('备注输入未生效，请重试。');
   }
-
-  await sleepRandom(120, 280);
 
   const confirmed = (await page.evaluate(`(() => {
     function norm(v) {
@@ -288,6 +300,70 @@ async function closeOnlineResumePanel(page: Page): Promise<void> {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * 对方「附件简历」确认卡片上点击「同意」。
+ * 对应按钮 disabled 时视为已处理。
+ */
+async function runIncomingResumeCardAction(page: Page, which: IncomingCardBtn): Promise<string> {
+  await ensureInCandidateChat(page, '附件简历处理');
+  await sleepRandom(200, 550);
+
+  const result = (await page.evaluate((w: 'agree' | 'refuse') => {
+    function norm(v: string | null | undefined) {
+      return (v ?? "").replace(/\\s+/g, " ").trim();
+    }
+    function isDisabledBtn(el: Element) {
+      const cls = el.className ?? "";
+      if (/disabled|forbid|ban/i.test(cls)) return true;
+      if (el.getAttribute("disabled") !== null) return true;
+      const st = window.getComputedStyle(el);
+      return st.pointerEvents === "none" || Number(st.opacity) < 0.35;
+    }
+    function matchesLabel(t: string, mode: string) {
+      if (mode === "agree") {
+        return t === "同意" || t.indexOf("同意") === 0;
+      }
+      return t === "拒绝" || t.indexOf("拒绝") === 0;
+    }
+    const items = Array.from(document.querySelectorAll(".chat-message-list .message-item"));
+    for (let i = items.length - 1; i >= 0; i--) {
+      const friend = items[i].querySelector(".item-friend");
+      if (!friend) continue;
+      const title = norm(friend.querySelector(".message-card-top-title")?.textContent);
+      if (!title || title.indexOf("附件简历") === -1) continue;
+      const buttons = friend.querySelectorAll(".message-card-buttons .card-btn");
+      for (let j = 0; j < buttons.length; j++) {
+        const btn = buttons[j];
+        const t = norm(btn.textContent);
+        if (!matchesLabel(t, w)) continue;
+        if (isDisabledBtn(btn)) {
+          return { kind: "already_handled", which: w };
+        }
+        (btn as HTMLElement).scrollIntoView({ block: "center", inline: "nearest" });
+        (btn as HTMLElement).click();
+        return { kind: "clicked", which: w };
+      }
+    }
+    return { kind: "not_found", which: w };
+  }, which)) as
+    | { kind: 'clicked'; which: IncomingCardBtn }
+    | { kind: 'already_handled'; which: IncomingCardBtn }
+    | { kind: 'not_found'; which: IncomingCardBtn };
+
+  if (result.kind === 'not_found') {
+    throw new Error('未找到待处理的「对方发送附件简历」确认卡片（标题需含「附件简历」）。');
+  }
+  if (result.kind === 'already_handled') {
+    return result.which === 'agree'
+      ? '对方发来的附件简历请求已处理（同意按钮已禁用）。'
+      : '对方发来的附件简历请求已处理（拒绝按钮已禁用）。';
+  }
+  await sleepRandom(350, 900);
+  return result.which === 'agree'
+    ? '已点击「同意」，接受对方发送的附件简历。'
+    : '已点击「拒绝」，拒绝接收对方附件简历。';
 }
 
 async function getCandidateLabelForResumeShot(page: Page): Promise<string> {
@@ -371,7 +447,7 @@ async function captureOnlineResumeScreenshot(page: Page, candidateLabel: string)
   }
 }
 
-export type ChatPageAction = 'online-resume' | 'not-fit' | 'remark';
+export type ChatPageAction = 'resume' | 'not-fit' | 'remark' | 'agree-resume' | 'history';
 
 export async function runChatActionOnCurrentConversation(
   page: Page,
@@ -383,7 +459,7 @@ export async function runChatActionOnCurrentConversation(
       return markCandidateNotFitWithoutReason(page);
     case 'remark':
       return updateCandidateRemark(page, options.remark ?? '');
-    case 'online-resume': {
+    case 'resume': {
       await ensureInCandidateChat(page, '在线简历');
       const candidateLabel = await getCandidateLabelForResumeShot(page);
       const resumeShotPath = await captureOnlineResumeScreenshot(page, candidateLabel);
@@ -395,12 +471,16 @@ export async function runChatActionOnCurrentConversation(
       }
       try {
         const ocr = await ocrResumePngToTextFile(resumeShotPath);
-        return `在线简历操作成功，截图文件：${resumeShotPath}\nOCR 文本文件：${ocr.textPath}`;
+        return `在线简历操作成功，\n在线简历 OCR 正文：\n\n${ocr.text}`;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         throw new Error(`在线简历截图成功，但 OCR 失败：${msg}`);
       }
     }
+    case 'agree-resume':
+      return runIncomingResumeCardAction(page, 'agree');
+    case 'history':
+      return runGetCommunicationHistory(page);
     default: {
       const _x: never = action;
       throw new Error(`未知的 chat action: ${String(_x)}`);

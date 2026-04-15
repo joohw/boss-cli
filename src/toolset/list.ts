@@ -1,5 +1,6 @@
 import type { Page } from 'puppeteer-core';
 import {
+  CHAT_GOTO_SETTLE_MS,
   createWaitManualLoginRequiredText,
   isBossChatIndexUrl,
   LIST_FILTER_GAP_MS,
@@ -61,6 +62,51 @@ async function clickChatFilterTabAll(page: Page): Promise<void> {
   })()`);
 }
 
+async function clickSidebarMenuToPath(
+  page: Page,
+  menuLabel: string,
+  targetPath: string,
+): Promise<void> {
+  const clicked = (await page.evaluate(
+    ({ label, path }) => {
+      const norm = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '');
+      const links = Array.from(document.querySelectorAll('.menu-list a'));
+      const target = links.find((a) => {
+        const href = a.getAttribute('href') ?? '';
+        if (href.includes(path)) {
+          return true;
+        }
+        const text = norm(a.querySelector('.menu-item-content span')?.textContent ?? a.textContent);
+        return text.includes(label);
+      });
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      target.scrollIntoView({ block: 'center', inline: 'nearest' });
+      target.click();
+      return true;
+    },
+    { label: menuLabel, path: targetPath },
+  )) as boolean;
+
+  if (!clicked) {
+    throw new Error(`未找到侧边栏菜单“${menuLabel}”，无法跳转到 ${targetPath}。`);
+  }
+
+  await page.waitForFunction(
+    (path) => {
+      try {
+        const p = window.location.pathname.replace(/\/+$/, '') || '/';
+        return p === path;
+      } catch {
+        return false;
+      }
+    },
+    { timeout: 15_000 },
+    targetPath,
+  );
+}
+
 export async function runGetCandidateList(
   opts: { unreadOnly?: boolean } = {},
 ): Promise<string> {
@@ -70,7 +116,12 @@ export async function runGetCandidateList(
     return await withChatPage(async (page) => {
       const currentUrl = page.url();
       if (!isBossChatIndexUrl(currentUrl)) {
-        throw new Error('请先进入聊天列表页（/web/chat/index）再获取候选人列表。');
+        await clickSidebarMenuToPath(page, '沟通', '/web/chat/index');
+        await sleepRandom(CHAT_GOTO_SETTLE_MS.min, CHAT_GOTO_SETTLE_MS.max);
+      }
+
+      if (!isBossChatIndexUrl(page.url())) {
+        throw new Error('通过侧边栏“沟通”进入聊天列表页失败，请确认已登录并可访问 /web/chat/index。');
       }
 
       await page.waitForFunction(

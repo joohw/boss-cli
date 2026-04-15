@@ -134,6 +134,28 @@ async function fetchColleagueChatHistorySection(page: Page): Promise<string | nu
   return parts.join('\n');
 }
 
+export async function runGetCommunicationHistory(page: Page): Promise<string> {
+  const currentUrl = page.url();
+  if (!isBossChatIndexUrl(currentUrl)) {
+    throw new Error('请先进入聊天列表页（/web/chat/index）并打开候选人聊天。');
+  }
+  const inCandidateChat = await page.$('.base-info-single-container');
+  if (!inCandidateChat) {
+    throw new Error('请先打开候选人聊天详情页，再执行“沟通记录”操作。');
+  }
+
+  let historyBlock: string | null = null;
+  try {
+    historyBlock = await fetchColleagueChatHistorySection(page);
+  } catch {
+    historyBlock = null;
+  }
+  if (historyBlock === null) {
+    return '未找到「沟通记录」入口，或当前候选人暂无可读取记录。';
+  }
+  return ['同事/我的沟通记录：', '', historyBlock].join('\n');
+}
+
 /** 关闭「沟通记录」弹层（优先点 Boss 提供的 popup 关闭钮） */
 async function closeChatHistoryPopup(page: Page): Promise<void> {
   try {
@@ -431,13 +453,6 @@ export async function runOpenCandidateChat(
     const resumeStatus = hasFriendResumeAttachment ? '已获取' : '未获取';
     const summary = await fetchCandidateSummary(page);
 
-    let historyBlock: string | null = null;
-    try {
-      historyBlock = await fetchColleagueChatHistorySection(page);
-    } catch {
-      historyBlock = null;
-    }
-
     const out: string[] = [
       `成功进入候选人聊天：${foundName}`,
       `简历获取状态: ${resumeStatus}`,
@@ -468,9 +483,6 @@ export async function runOpenCandidateChat(
     }
     if (summary.remark) {
       out.push('', `备注: ${summary.remark}`);
-    }
-    if (historyBlock !== null) {
-      out.push('', '同事/我的沟通记录：', '', historyBlock);
     }
     out.push('', '完整聊天消息：');
     if (detailLines.length > 0) {

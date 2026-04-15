@@ -11,6 +11,7 @@ import {
   implListCandidates,
   implListUnreadCandidates,
   implListPositions,
+  implListPositionsWithOptions,
   implOpenChat,
   implSendMessage,
   implSkill,
@@ -112,7 +113,7 @@ function normalizeSubcommand(cmd: string): string {
     case 'send-message':
       return 'send';
     case 'list-positions':
-      return 'jd';
+      return 'positions';
     default:
       return cmd;
   }
@@ -132,17 +133,19 @@ function printHelp(): void {
       读取「全部」聊天列表候选人；--unread 仅显示未读（角标>0）
   boss chat <姓名> [--strict]
       打开指定联系人会话；默认包含匹配，--strict 为精确匹配
-  boss action --type <操作> [--remark <备注>]
+  boss action <操作> [--remark <备注>]
       仅在当前聊天页已打开候选人详情时执行操作，并只返回 action 执行结果
-      --type: online-resume | not-fit | remark
-      --type remark 时必须提供 --remark
+      操作: resume | not-fit | remark | agree-resume | history
+      操作为 remark 时必须提供 --remark
   boss send [--text <内容>] [-t <内容>] [--action <操作>]
       --text 与 --action 可同时使用；先发消息再执行 action，中间有默认随机间隔
       --action: request-resume | agree-resume | confuse-resume（confuse-resume=拒绝附件）；须至少 text 或 action 其一
-  boss jd
-      读取本地 ~/.boss-cli/jd 目录下的岗位 Markdown（Windows 为 %USERPROFILE%\\.boss-cli\\jd）
+  boss positions
+      读取当前职位列表（含开放/待开放/已关闭状态）
+  boss jd <name>
+      抓取指定职位详情并缓存到项目目录同名 .md
   boss skill
-      仅输出本包 Agent Skill 的说明（不安装）
+      输出本包 Agent Skill 的说明
   boss skill install  |  boss skill uninstall
       安装或移除唯一 Skill（boss-cli）到 ~/.agents/skills/（可用 BOSS_AGENT_SKILLS_DIR 覆盖根目录）
 `);
@@ -236,7 +239,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
       die('❌ 用法: chat <姓名> [--strict]');
     }
     if ((opts.action ?? '').trim().length > 0 || (opts.remark ?? '').trim().length > 0) {
-      die('❌ chat 不再支持 --action/--remark。请改用: action --type <操作> [--remark <备注>]');
+      die('❌ chat 不再支持 --action/--remark。请改用: action <操作> [--remark <备注>]');
     }
     // 默认模糊匹配（包含）；仅在指定 --strict 时做精确匹配
     const exact = flags.has('strict');
@@ -244,20 +247,23 @@ export async function executeCommand(argv: string[]): Promise<string> {
   }
 
   if (cmd === 'action') {
-    const { opts } = parseOpts(tail);
-    const raw = (opts.type ?? opts.action ?? '').trim().toLowerCase();
+    const { rest, opts } = parseOpts(tail);
+    const raw = (rest[0] ?? opts.type ?? opts.action ?? '').trim().toLowerCase();
     const actionMap: Record<string, ChatPageAction> = {
-      'online-resume': 'online-resume',
+      resume: 'resume',
       'not-fit': 'not-fit',
       remark: 'remark',
+      'agree-resume': 'agree-resume',
+      history: 'history',
+      'chat-history': 'history',
     };
     const action = actionMap[raw];
     if (!action) {
-      die('❌ 用法: action --type online-resume|not-fit|remark [--remark <备注>]');
+      die('❌ 用法: action <resume|not-fit|remark|agree-resume|history> [--remark <备注>]');
     }
     const remark = (opts.remark ?? '').trim();
     if (action === 'remark' && !remark) {
-      die('❌ 当 --type=remark 时，必须提供 --remark <备注内容>。');
+      die('❌ 当操作为 remark 时，必须提供 --remark <备注内容>。');
     }
     return implChatAction({ action, remark });
   }
@@ -286,8 +292,32 @@ export async function executeCommand(argv: string[]): Promise<string> {
     return implSendMessage({ text, action });
   }
 
-  if (cmd === 'jd') {
+  if (cmd === 'positions') {
+    const { rest, opts, flags } = parseOpts(tail);
+    if (rest.length > 0 || Object.keys(opts).length > 0 || flags.size > 0) {
+      die('❌ 用法: positions');
+    }
     return implListPositions();
+  }
+
+  if (cmd === 'jd') {
+    const { flags, opts, rest } = parseOpts(tail);
+    if (flags.has('detail')) {
+      die('❌ jd 不再支持 --detail。请使用: jd <name>');
+    }
+    if (flags.size > 0) {
+      const unsupportedFlags = Array.from(flags).join(', --');
+      die(`❌ jd 不支持参数: --${unsupportedFlags}`);
+    }
+    const detailName = rest.join(' ').trim();
+    if (!detailName) {
+      die('❌ 用法: jd <name>');
+    }
+    const unknownOpts = Object.keys(opts);
+    if (unknownOpts.length > 0) {
+      die(`❌ jd 不支持参数: --${unknownOpts.join(', --')}`);
+    }
+    return implListPositionsWithOptions({ detail: true, name: detailName });
   }
 
   if (cmd === 'skill') {

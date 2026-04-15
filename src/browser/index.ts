@@ -23,5 +23,4 @@ export {
 } from './browser_session.js';
 
 export * from './auth.js';
-export { withLoggedInPage } from './withLoggedInPage.js';
 export { withChatPage } from './chat.js';
