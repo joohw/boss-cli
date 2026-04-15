@@ -43,7 +43,8 @@ function configureHeadlessForCommand(cmd: string): void {
 }
 
 /**
- * 命令结束时不关闭浏览器进程，只 detach CDP（一次性命令）或保持连接（交互模式），便于窗口继续操作、下次 boss 重连。
+ * 一次性命令结束后：detach CDP，不关浏览器窗口。
+ * 交互模式在循环内不调用；退出 REPL 时在 `runInteractiveLoop` 的 finally 里单独 detach（避免 Node 退出时拖死 Chrome）。
  */
 async function cleanupAfterCommand(_cmd: string, nonInteractive: boolean): Promise<void> {
   if (!nonInteractive) {
@@ -315,7 +316,8 @@ async function runInteractiveLoop(): Promise<void> {
     }
   } finally {
     rl.close();
-    await cleanupAfterCommand('interactive', false);
+    // 退出交互时进程即将结束，必须 detach + unref 子进程，否则 Chrome 常随 Node 一起退出
+    await detachBrowserSession().catch(() => {});
   }
 }
 

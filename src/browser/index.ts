@@ -6,9 +6,11 @@ export * from './human_delay.js';
 export {
   connectBrowser,
   createPageCDPSession,
+  defaultViewportFromEnv,
   LAUNCH_ARGS_ALLOW_ALL_CORS,
   LAUNCH_ARGS_LESS_AUTOMATION,
   type ConnectBrowserOptions,
+  wasLastChromeLaunchHeadless,
 } from './cdp_browser.js';
 export {
   detachBrowserSession,

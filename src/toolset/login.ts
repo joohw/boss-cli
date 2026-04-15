@@ -7,6 +7,7 @@ import {
   getBrowserRef,
   getPageRef,
   setSessionPage,
+  wasLastChromeLaunchHeadless,
 } from '../browser/index.js';
 
 const BOSS_LOGIN_URL = 'https://www.zhipin.com/web/user/?ka=header-login';
@@ -48,7 +49,9 @@ export async function runLogin(): Promise<string> {
   const existing = getBrowserRef();
   try {
     const args = existing?.process?.()?.spawnargs ?? [];
-    const isHeadless = args.some((a) => typeof a === 'string' && a.startsWith('--headless'));
+    const isHeadless =
+      wasLastChromeLaunchHeadless() ||
+      args.some((a) => typeof a === 'string' && a.startsWith('--headless'));
     if (existing?.connected && isHeadless) {
       await disconnectBrowserSession().catch(() => {});
     }

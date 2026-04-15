@@ -1,6 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 import type { Browser, Page } from 'puppeteer-core';
-import { connectBrowser } from './cdp_browser.js';
+import { clearSpawnedChromeProcessRef, connectBrowser } from './cdp_browser.js';
 let browserRef: Browser | null = null;
 let pageRef: Page | null = null;
 let connectPromise: Promise<void> | null = null;
@@ -162,6 +162,7 @@ export async function disconnectBrowserSession(): Promise<void> {
   }
   browserRef = null;
   pageRef = null;
+  clearSpawnedChromeProcessRef();
 }
 
 function unrefBrowserChildProcess(proc: ChildProcess | null | undefined): void {
@@ -179,6 +180,8 @@ function unrefBrowserChildProcess(proc: ChildProcess | null | undefined): void {
  * CLI 可以立刻退出，而浏览器窗口仍保留给用户完成登录。
  *
  * 必须在 disconnect 后对 Chrome 子进程 `unref`，否则 Node 会因子进程仍存活而无法退出。
+ *
+ * 注意：**绝不调用 `browser.close()`**——历史上在 disconnect 抛错时误走 close 会导致退出 CLI 时浏览器被关掉。
  */
 export async function detachBrowserSession(): Promise<void> {
   const b = browserRef;
@@ -191,23 +194,16 @@ export async function detachBrowserSession(): Promise<void> {
   }
   try {
     b.removeAllListeners('disconnected');
-    // Puppeteer 支持 disconnect：断开连接但保留浏览器进程
-    //（若底层不支持或抛错，则退化为 close）。
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyB = b as any;
     if (typeof anyB.disconnect === 'function') {
-      anyB.disconnect();
-    } else {
-      await b.close();
+      await Promise.resolve(anyB.disconnect());
     }
   } catch {
-    try {
-      await b.close();
-    } catch {
-      /* ignore */
-    }
+    /* 仍不 close；仅断开失败时依赖下方 unref 与进程退出行为 */
   }
   unrefBrowserChildProcess(proc ?? null);
+  clearSpawnedChromeProcessRef();
   browserRef = null;
   pageRef = null;
 }

@@ -46,6 +46,12 @@ export const CHAT_HISTORY_DIALOG_WAIT_MS = { min: 500, max: 1400 } as const;
 /** 「同事沟通」/「我的沟通」切换后等待列表刷新 */
 export const CHAT_HISTORY_TAB_SWITCH_MS = { min: 350, max: 900 } as const;
 
+/** 点击「在线简历」后等待 iframe 出现 */
+export const ONLINE_RESUME_IFRAME_APPEAR_MS = { min: 600, max: 1600 } as const;
+
+/** iframe 出现后等待简历区域渲染 */
+export const ONLINE_RESUME_IFRAME_SETTLE_MS = { min: 1800, max: 4200 } as const;
+
 /**
  * 逐字符输入，字符之间为随机间隔（末尾字符后不再额外等待）。
  */

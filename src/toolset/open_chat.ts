@@ -1,14 +1,20 @@
+import { join } from 'node:path';
 import type { Page } from 'puppeteer-core';
 import {
   CHAT_HISTORY_DIALOG_WAIT_MS,
   CHAT_HISTORY_TAB_SWITCH_MS,
+  defaultViewportFromEnv,
   isBossChatIndexUrl,
   MOUSE_CLICK_PRESS_MS,
+  ONLINE_RESUME_IFRAME_APPEAR_MS,
+  ONLINE_RESUME_IFRAME_SETTLE_MS,
   OPEN_CHAT_AFTER_ROW_CLICK_MS,
   OPEN_CHAT_SCROLL_GAP_MS,
   randomIntInclusive,
   sleepRandom,
 } from '../browser/index.js';
+import { ensureAppDataLayout, RESUME_SCREENSHOTS_DIR } from '../config.js';
+import { isResumeOcrEnabled, ocrResumePngToTextFile } from '../ocr/index.js';
 
 type ChatFrom = 'friend' | 'myself' | 'system' | 'unknown';
 
@@ -27,8 +33,9 @@ function chatRoleTag(from: ChatFrom): string {
 
 /**
  * 打开「沟通记录」弹窗，依次读取「同事沟通」「我的沟通」列表，关闭弹窗。
+ * 未找到入口时返回 null（视为暂无同事沟通记录，不输出该段）。
  */
-async function fetchColleagueChatHistorySection(page: Page): Promise<string> {
+async function fetchColleagueChatHistorySection(page: Page): Promise<string | null> {
   const clicked = await page.evaluate(() => {
     function norm(v: string | null | undefined) {
       return (v ?? '').replace(/\s+/g, ' ').trim();
@@ -62,7 +69,7 @@ async function fetchColleagueChatHistorySection(page: Page): Promise<string> {
   });
 
   if (!clicked) {
-    return '(当前页面未找到「沟通记录」入口，可能无权限或页面结构已变。)';
+    return null;
   }
 
   try {
@@ -171,6 +178,152 @@ async function closeChatHistoryPopup(page: Page): Promise<void> {
       });
       await sleepRandom(150, 350);
     }
+  } catch {
+    /* ignore */
+  }
+}
+
+function safeResumeFileBase(name: string): string {
+  const t = name.replace(/[/\\?%*:|"<>]/g, '_').trim().slice(0, 64);
+  return t.length > 0 ? t : 'candidate';
+}
+
+/** 在线简历截图前临时拉高的视口高度（CSS px）。可用 `BOSS_RESUME_SCREENSHOT_VIEWPORT_HEIGHT` 覆盖。 */
+const ONLINE_RESUME_SNAPSHOT_VIEWPORT_HEIGHT_PX = 5000;
+
+function viewportForOnlineResumeSnapshot(
+  prev: Awaited<ReturnType<Page['viewport']>>,
+): NonNullable<Awaited<ReturnType<Page['viewport']>>> {
+  const envH = Number.parseInt(process.env.BOSS_RESUME_SCREENSHOT_VIEWPORT_HEIGHT?.trim() ?? '', 10);
+  const height =
+    Number.isFinite(envH) && envH > 0 ? envH : ONLINE_RESUME_SNAPSHOT_VIEWPORT_HEIGHT_PX;
+  const base = defaultViewportFromEnv();
+  return {
+    width: prev?.width ?? base.width,
+    height,
+    deviceScaleFactor: prev?.deviceScaleFactor ?? 1,
+    isMobile: prev?.isMobile ?? false,
+    hasTouch: prev?.hasTouch ?? false,
+    isLandscape: prev?.isLandscape ?? false,
+  };
+}
+
+function viewportRestoreAfterResumeSnapshot(
+  prev: Awaited<ReturnType<Page['viewport']>>,
+): NonNullable<Awaited<ReturnType<Page['viewport']>>> {
+  if (prev) {
+    return prev;
+  }
+  const d = defaultViewportFromEnv();
+  return {
+    width: d.width,
+    height: d.height,
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+    isLandscape: false,
+  };
+}
+
+/**
+ * 点击「在线简历」，对 `iframe` 元素整框截图（含视口外部分，见 `captureBeyondViewport`）。
+ * 不依赖 `contentFrame()`，与内页是否 canvas / 跨域无关。
+ *
+ * 进入前记录 `page.viewport()`，截图前临时 `setViewport` 拉高（默认高度 5000），结束后恢复。
+ */
+async function captureOnlineResumeScreenshot(page: Page, candidateLabel: string): Promise<string | null> {
+  ensureAppDataLayout();
+
+  const savedViewport = await page.viewport();
+
+  const opened = await page.evaluate(() => {
+    const a = document.querySelector('a.resume-btn-online') as HTMLAnchorElement | null;
+    if (!a || a.classList.contains('disabled')) return false;
+    a.scrollIntoView({ block: 'center', inline: 'nearest' });
+    a.click();
+    return true;
+  });
+  if (!opened) {
+    return null;
+  }
+
+  await sleepRandom(ONLINE_RESUME_IFRAME_APPEAR_MS.min, ONLINE_RESUME_IFRAME_APPEAR_MS.max);
+
+  const hasIframe = await page
+    .waitForSelector('iframe[src*="c-resume"], iframe[src*="frame/c-resume"]', { timeout: 22_000 })
+    .catch(() => null);
+  if (!hasIframe) {
+    return null;
+  }
+
+  await sleepRandom(ONLINE_RESUME_IFRAME_SETTLE_MS.min, ONLINE_RESUME_IFRAME_SETTLE_MS.max);
+
+  const fileName = `online-resume-${safeResumeFileBase(candidateLabel)}-${Date.now()}.png`;
+  const absPath = join(RESUME_SCREENSHOTS_DIR, fileName);
+
+  try {
+    await page.setViewport(viewportForOnlineResumeSnapshot(savedViewport));
+    await sleepRandom(100, 320);
+
+    const iframe = await page.$('iframe[src*="c-resume"], iframe[src*="frame/c-resume"]');
+    if (!iframe) {
+      return null;
+    }
+
+    await iframe.evaluate((el) => {
+      (el as HTMLElement).scrollIntoView({ block: 'start', inline: 'nearest' });
+    });
+
+    const box = await iframe.boundingBox();
+    if (!box) {
+      await iframe.dispose();
+      return null;
+    }
+
+    try {
+      await iframe.screenshot({
+        path: absPath,
+        type: 'png',
+        captureBeyondViewport: true,
+      });
+    } finally {
+      await iframe.dispose();
+    }
+
+    await closeOnlineResumePanel(page);
+    return absPath;
+  } finally {
+    await page.setViewport(viewportRestoreAfterResumeSnapshot(savedViewport));
+  }
+}
+
+async function closeOnlineResumePanel(page: Page): Promise<void> {
+  try {
+    await page.evaluate(() => {
+      const wraps = Array.from(document.querySelectorAll('.boss-popup__wrapper'));
+      for (const w of wraps) {
+        if (w.querySelector('iframe[src*="c-resume"], iframe[src*="frame/c-resume"]')) {
+          const c = w.querySelector('.boss-popup__close');
+          if (c) {
+            (c as HTMLElement).click();
+            return;
+          }
+        }
+      }
+      const iframe = document.querySelector(
+        'iframe[src*="c-resume"], iframe[src*="frame/c-resume"]',
+      );
+      let node: Element | null = iframe?.parentElement ?? null;
+      for (let i = 0; i < 12 && node; i++) {
+        const c = node.querySelector('.boss-popup__close, .drawer-close, .icon-close');
+        if (c) {
+          (c as HTMLElement).click();
+          return;
+        }
+        node = node.parentElement;
+      }
+    });
+    await sleepRandom(200, 450);
   } catch {
     /* ignore */
   }
@@ -381,23 +534,51 @@ export async function runOpenCandidateChat(
 
     const resumeStatus = hasFriendResumeAttachment ? '已获取' : '未获取';
 
-    let historyBlock = '';
+    let historyBlock: string | null = null;
     try {
       historyBlock = await fetchColleagueChatHistorySection(page);
     } catch {
-      historyBlock = '(读取「沟通记录」时出现异常。)';
+      historyBlock = null;
+    }
+
+    let resumeShotPath: string | null = null;
+    try {
+      resumeShotPath = await captureOnlineResumeScreenshot(page, foundName);
+    } catch {
+      resumeShotPath = null;
+    }
+
+    let resumeOcrTextPath: string | null = null;
+    let resumeOcrText: string | null = null;
+    let resumeOcrError: string | null = null;
+    if (resumeShotPath !== null && isResumeOcrEnabled()) {
+      try {
+        const ocr = await ocrResumePngToTextFile(resumeShotPath);
+        resumeOcrTextPath = ocr.textPath;
+        resumeOcrText = ocr.text;
+      } catch (e) {
+        resumeOcrError = e instanceof Error ? e.message : String(e);
+        console.error(`[boss-cli] 在线简历 OCR 失败：${resumeOcrError}`);
+      }
     }
 
     const out: string[] = [
       `成功进入候选人聊天：${foundName}`,
       `简历获取状态: ${resumeStatus}`,
-      '',
-      '同事/我的沟通记录：',
-      '',
-      historyBlock,
-      '',
-      '完整聊天消息：',
     ];
+    if (historyBlock !== null) {
+      out.push('', '同事/我的沟通记录：', '', historyBlock);
+    }
+    if (resumeOcrTextPath !== null && resumeOcrText !== null) {
+      out.push('', '在线简历（OCR）：', '', resumeOcrTextPath, '', '在线简历 OCR 正文：', '', resumeOcrText);
+    } else if (resumeShotPath !== null && isResumeOcrEnabled() && resumeOcrError !== null) {
+      out.push(
+        '',
+        `(在线简历 OCR 未成功：${resumeOcrError})`,
+        `截图文件：${resumeShotPath}`,
+      );
+    }
+    out.push('', '完整聊天消息：');
     if (detailLines.length > 0) {
       out.push('', ...detailLines);
     } else {
