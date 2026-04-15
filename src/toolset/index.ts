@@ -1,14 +1,18 @@
 /** 业务实现聚合出口：impl* 供 CLI 与其它模块调用 */
 import { runLogin } from './login.js';
-import { runGetCandidateList } from './list_candidates.js';
-import { runListOpenPositions } from './list_positions.js';
-import { runOpenCandidateChat, type ChatOpenAction } from './open_chat.js';
-import { runSendChatMessage, type SendAction } from './send_message.js';
+import { runGetCandidateList } from './list.js';
+import { runListOpenPositions } from './jd.js';
+import { runOpenCandidateChat } from './chat.js';
+import {
+  runChatActionOnCurrentConversation,
+  type ChatPageAction,
+} from './action.js';
+import { runSendChatMessage, type SendAction } from './send.js';
 import { implSkillCli } from './skill.js';
 import { withChatPage } from '../browser/index.js';
 
-export type { SendAction } from './send_message.js';
-export type { ChatOpenAction };
+export type { SendAction } from './send.js';
+export type { ChatPageAction };
 
 export async function implLogin(): Promise<string> {
   return runLogin();
@@ -25,9 +29,15 @@ export async function implListUnreadCandidates(): Promise<string> {
 export async function implOpenChat(
   candidateName: string,
   exact: boolean,
-  options?: { action?: ChatOpenAction },
 ): Promise<string> {
-  return withChatPage(async (page) => runOpenCandidateChat(page, candidateName, exact, options));
+  return withChatPage(async (page) => runOpenCandidateChat(page, candidateName, exact));
+}
+
+export async function implChatAction(params: {
+  action: ChatPageAction;
+  remark?: string;
+}): Promise<string> {
+  return withChatPage(async (page) => runChatActionOnCurrentConversation(page, params));
 }
 
 export async function implSendMessage(params: {

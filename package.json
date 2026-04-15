@@ -1,6 +1,6 @@
 {
   "name": "@joohw/boss-cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Boss 直聘浏览器自动化 CLI（CDP + Puppeteer），供 Agent 运行时调用",
   "type": "module",
   "main": "dist/cli/index.js",

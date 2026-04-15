@@ -239,7 +239,7 @@ export type ConnectBrowserOptions = {
  * 若以上均未设置，会按系统尝试常见 Chrome / Edge / Chromium 安装路径。
  * - `BOSS_BROWSER_HEADLESS` — 设为 `true` 时启用无头；默认**有界面**。
  * - `BOSS_BROWSER_VIEWPORT_WIDTH` — 默认 `1280`（CSS 像素）
- * - `BOSS_BROWSER_VIEWPORT_HEIGHT` — 默认 `4000`（在线简历 iframe 常高于一屏，拉高视口便于整框截图）
+ * - `BOSS_BROWSER_VIEWPORT_HEIGHT` — 默认 `1200`（常规浏览更接近桌面窗口高度）
  */
 /** 启动浏览器时的默认视口（与环境变量一致）；截图恢复时 `viewport()` 为 null 也可用其兜底。 */
 export function defaultViewportFromEnv(): { width: number; height: number } {
@@ -247,7 +247,7 @@ export function defaultViewportFromEnv(): { width: number; height: number } {
   const h = Number.parseInt(process.env.BOSS_BROWSER_VIEWPORT_HEIGHT?.trim() ?? '', 10);
   return {
     width: Number.isFinite(w) && w > 0 ? w : 1280,
-    height: Number.isFinite(h) && h > 0 ? h : 4000,
+    height: Number.isFinite(h) && h > 0 ? h : 1200,
   };
 }
 
@@ -295,7 +295,7 @@ export async function connectBrowser(options: ConnectBrowserOptions = {}): Promi
       headless,
       args: userArgs,
     })
-    .filter((a) => a !== '--enable-automation');
+    .filter((a) => a !== '--enable-automation' && a !== 'about:blank' && a !== 'data:,');
 
   if (!chromeArgs.some((a) => a.startsWith('--remote-debugging-'))) {
     chromeArgs.push('--remote-debugging-port=0');

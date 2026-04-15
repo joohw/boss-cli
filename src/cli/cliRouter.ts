@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { detachBrowserSession } from '../browser/index.js';
 import {
+  implChatAction,
   implLogin,
   implListCandidates,
   implListUnreadCandidates,
@@ -13,7 +14,7 @@ import {
   implOpenChat,
   implSendMessage,
   implSkill,
-  type ChatOpenAction,
+  type ChatPageAction,
   type SendAction,
 } from '../toolset/index.js';
 import { printBossInteractiveBanner } from './banner.js';
@@ -129,9 +130,12 @@ function printHelp(): void {
       打开登录页（需要在浏览器中自行完成登录）
   boss list [--unread]
       读取「全部」聊天列表候选人；--unread 仅显示未读（角标>0）
-  boss chat <姓名> [--strict] [--action online-resume]
+  boss chat <姓名> [--strict]
       打开指定联系人会话；默认包含匹配，--strict 为精确匹配
-      --action online-resume：额外点击「在线简历」并截图（可选 OCR，见环境变量说明）
+  boss action --type <操作> [--remark <备注>]
+      仅在当前聊天页已打开候选人详情时执行操作，并只返回 action 执行结果
+      --type: online-resume | not-fit | remark
+      --type remark 时必须提供 --remark
   boss send [--text <内容>] [-t <内容>] [--action <操作>]
       --text 与 --action 可同时使用；先发消息再执行 action，中间有默认随机间隔
       --action: request-resume | agree-resume | confuse-resume（confuse-resume=拒绝附件）；须至少 text 或 action 其一
@@ -229,22 +233,33 @@ export async function executeCommand(argv: string[]): Promise<string> {
     const { rest, flags, opts } = parseOpts(tail);
     const nameArg = rest[0]?.trim();
     if (!nameArg) {
-      die('❌ 用法: chat <姓名> [--strict] [--action online-resume]');
+      die('❌ 用法: chat <姓名> [--strict]');
+    }
+    if ((opts.action ?? '').trim().length > 0 || (opts.remark ?? '').trim().length > 0) {
+      die('❌ chat 不再支持 --action/--remark。请改用: action --type <操作> [--remark <备注>]');
     }
     // 默认模糊匹配（包含）；仅在指定 --strict 时做精确匹配
     const exact = flags.has('strict');
-    const rawChatAction = (opts.action ?? '').trim().toLowerCase();
-    const chatActionMap: Record<string, ChatOpenAction> = {
+    return implOpenChat(nameArg, exact);
+  }
+
+  if (cmd === 'action') {
+    const { opts } = parseOpts(tail);
+    const raw = (opts.type ?? opts.action ?? '').trim().toLowerCase();
+    const actionMap: Record<string, ChatPageAction> = {
       'online-resume': 'online-resume',
+      'not-fit': 'not-fit',
+      remark: 'remark',
     };
-    let chatAction: ChatOpenAction | undefined;
-    if (rawChatAction) {
-      chatAction = chatActionMap[rawChatAction];
-      if (!chatAction) {
-        die(`❌ 未知 --action “${rawChatAction}”，可选：online-resume`);
-      }
+    const action = actionMap[raw];
+    if (!action) {
+      die('❌ 用法: action --type online-resume|not-fit|remark [--remark <备注>]');
     }
-    return implOpenChat(nameArg, exact, chatAction ? { action: chatAction } : undefined);
+    const remark = (opts.remark ?? '').trim();
+    if (action === 'remark' && !remark) {
+      die('❌ 当 --type=remark 时，必须提供 --remark <备注内容>。');
+    }
+    return implChatAction({ action, remark });
   }
 
   if (cmd === 'send') {

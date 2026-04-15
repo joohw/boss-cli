@@ -56,6 +56,42 @@ async function pickOrCreatePage(b: Browser): Promise<Page> {
   return pages[0]!;
 }
 
+async function closeRedundantBlankPages(b: Browser, keep: Page | null): Promise<void> {
+  const pages = (await b.pages()).filter((p) => !p.isClosed());
+  if (pages.length <= 1) return;
+
+  const urls = await Promise.all(
+    pages.map((p) => {
+      try {
+        return p.url();
+      } catch {
+        return '';
+      }
+    }),
+  );
+
+  const blankPages = pages.filter((_, i) => {
+    const u = urls[i] ?? '';
+    return u === '' || u === 'about:blank';
+  });
+  if (blankPages.length === 0) return;
+
+  const hasNonBlank = pages.some((_, i) => {
+    const u = urls[i] ?? '';
+    return u !== '' && u !== 'about:blank';
+  });
+
+  for (const p of blankPages) {
+    if (p === keep) continue;
+    if (!hasNonBlank && p === blankPages[0]) continue;
+    try {
+      await p.close({ runBeforeUnload: false });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function isSessionHealthy(): boolean {
   return !!(browserRef?.connected && pageRef && !pageRef.isClosed());
 }
@@ -77,6 +113,7 @@ async function establishSession(): Promise<void> {
   browserRef = b;
   attachDisconnectedHandler(b);
   pageRef = await pickOrCreatePage(b);
+  await closeRedundantBlankPages(b, pageRef);
 }
 
 /**
@@ -99,12 +136,14 @@ export async function ensureBrowserSession(): Promise<void> {
             pageRef = preferred;
           }
         }
+        await closeRedundantBlankPages(browserRef, pageRef);
       } catch {
         /* ignore */
       }
       return;
     }
     pageRef = await pickOrCreatePage(browserRef);
+    await closeRedundantBlankPages(browserRef, pageRef);
     return;
   }
 
