@@ -5,7 +5,6 @@
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { detachBrowserSession } from '../browser/index.js';
-import { CACHE_DIR } from '../config.js';
 import {
   implLogin,
   implListCandidates,
@@ -13,6 +12,8 @@ import {
   implListPositions,
   implOpenChat,
   implSendMessage,
+  implSkill,
+  type ChatOpenAction,
   type SendAction,
 } from '../toolset/index.js';
 import { printBossInteractiveBanner } from './banner.js';
@@ -128,19 +129,18 @@ function printHelp(): void {
       打开登录页（需要在浏览器中自行完成登录）
   boss list [--unread]
       读取「全部」聊天列表候选人；--unread 仅显示未读（角标>0）
-  boss chat <姓名> [--strict]
+  boss chat <姓名> [--strict] [--action online-resume]
       打开指定联系人会话；默认包含匹配，--strict 为精确匹配
+      --action online-resume：额外点击「在线简历」并截图（可选 OCR，见环境变量说明）
   boss send [--text <内容>] [-t <内容>] [--action <操作>]
       --text 与 --action 可同时使用；先发消息再执行 action，中间有默认随机间隔
       --action: request-resume | agree-resume | confuse-resume（confuse-resume=拒绝附件）；须至少 text 或 action 其一
   boss jd
       读取本地 ~/.boss-cli/jd 目录下的岗位 Markdown（Windows 为 %USERPROFILE%\\.boss-cli\\jd）
-
-旧名仍可用：list-candidates、open-chat、send-message、list-positions。
-
-成功时 stdout 为纯文本；业务失败时进程退出码为 1。
-
-数据目录默认：${CACHE_DIR}（浏览器用户数据见环境变量 BOSS_BROWSER_USER_DATA_DIR，未设置时使用其下 browser-data）。
+  boss skill
+      仅输出本包 Agent Skill 的说明（不安装）
+  boss skill install  |  boss skill uninstall
+      安装或移除唯一 Skill（boss-cli）到 ~/.agents/skills/（可用 BOSS_AGENT_SKILLS_DIR 覆盖根目录）
 `);
 }
 
@@ -226,14 +226,25 @@ export async function executeCommand(argv: string[]): Promise<string> {
   }
 
   if (cmd === 'chat') {
-    const { rest, flags } = parseOpts(tail);
+    const { rest, flags, opts } = parseOpts(tail);
     const nameArg = rest[0]?.trim();
     if (!nameArg) {
-      die('❌ 用法: chat <姓名> [--strict]');
+      die('❌ 用法: chat <姓名> [--strict] [--action online-resume]');
     }
     // 默认模糊匹配（包含）；仅在指定 --strict 时做精确匹配
     const exact = flags.has('strict');
-    return implOpenChat(nameArg, exact);
+    const rawChatAction = (opts.action ?? '').trim().toLowerCase();
+    const chatActionMap: Record<string, ChatOpenAction> = {
+      'online-resume': 'online-resume',
+    };
+    let chatAction: ChatOpenAction | undefined;
+    if (rawChatAction) {
+      chatAction = chatActionMap[rawChatAction];
+      if (!chatAction) {
+        die(`❌ 未知 --action “${rawChatAction}”，可选：online-resume`);
+      }
+    }
+    return implOpenChat(nameArg, exact, chatAction ? { action: chatAction } : undefined);
   }
 
   if (cmd === 'send') {
@@ -262,6 +273,10 @@ export async function executeCommand(argv: string[]): Promise<string> {
 
   if (cmd === 'jd') {
     return implListPositions();
+  }
+
+  if (cmd === 'skill') {
+    return implSkill(tail);
   }
 
   die(`❌ 未知命令 “${argv[0]}”。输入 help 查看用法。`);

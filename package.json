@@ -10,6 +10,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "README.md",
     "AGENTS.md",
     "LICENSE"

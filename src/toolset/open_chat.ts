@@ -329,11 +329,15 @@ async function closeOnlineResumePanel(page: Page): Promise<void> {
   }
 }
 
+export type ChatOpenAction = 'online-resume';
+
 export async function runOpenCandidateChat(
   page: Page,
   candidateName: string,
   exact = true,
+  options?: { action?: ChatOpenAction },
 ): Promise<string> {
+  const captureOnlineResume = options?.action === 'online-resume';
   const targetName = candidateName.trim();
 
   try {
@@ -542,16 +546,18 @@ export async function runOpenCandidateChat(
     }
 
     let resumeShotPath: string | null = null;
-    try {
-      resumeShotPath = await captureOnlineResumeScreenshot(page, foundName);
-    } catch {
-      resumeShotPath = null;
+    if (captureOnlineResume) {
+      try {
+        resumeShotPath = await captureOnlineResumeScreenshot(page, foundName);
+      } catch {
+        resumeShotPath = null;
+      }
     }
 
     let resumeOcrTextPath: string | null = null;
     let resumeOcrText: string | null = null;
     let resumeOcrError: string | null = null;
-    if (resumeShotPath !== null && isResumeOcrEnabled()) {
+    if (captureOnlineResume && resumeShotPath !== null && isResumeOcrEnabled()) {
       try {
         const ocr = await ocrResumePngToTextFile(resumeShotPath);
         resumeOcrTextPath = ocr.textPath;
@@ -569,14 +575,18 @@ export async function runOpenCandidateChat(
     if (historyBlock !== null) {
       out.push('', '同事/我的沟通记录：', '', historyBlock);
     }
-    if (resumeOcrTextPath !== null && resumeOcrText !== null) {
-      out.push('', '在线简历（OCR）：', '', resumeOcrTextPath, '', '在线简历 OCR 正文：', '', resumeOcrText);
-    } else if (resumeShotPath !== null && isResumeOcrEnabled() && resumeOcrError !== null) {
-      out.push(
-        '',
-        `(在线简历 OCR 未成功：${resumeOcrError})`,
-        `截图文件：${resumeShotPath}`,
-      );
+    if (captureOnlineResume) {
+      if (resumeOcrTextPath !== null && resumeOcrText !== null) {
+        out.push('', '在线简历（OCR）：', '', resumeOcrTextPath, '', '在线简历 OCR 正文：', '', resumeOcrText);
+      } else if (resumeShotPath !== null && isResumeOcrEnabled() && resumeOcrError !== null) {
+        out.push(
+          '',
+          `(在线简历 OCR 未成功：${resumeOcrError})`,
+          `截图文件：${resumeShotPath}`,
+        );
+      } else if (resumeShotPath !== null && !isResumeOcrEnabled()) {
+        out.push('', '在线简历截图：', '', resumeShotPath);
+      }
     }
     out.push('', '完整聊天消息：');
     if (detailLines.length > 0) {

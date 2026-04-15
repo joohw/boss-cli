@@ -4,6 +4,18 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
+/**
+ * 多数 Agent 客户端约定的 skills 根目录（如 `~/.agents/skills`）。
+ * 可用 `BOSS_AGENT_SKILLS_DIR` 设为绝对路径以覆盖。
+ */
+export function getAgentSkillsDir(): string {
+  const raw = process.env.BOSS_AGENT_SKILLS_DIR?.trim();
+  if (raw && raw.length > 0) {
+    return raw;
+  }
+  return join(homedir(), '.agents', 'skills');
+}
+
 /** 应用主目录（业务数据在 .cache 下） */
 export const APP_HOME = join(homedir(), '.boss-cli');
 
@@ -46,5 +58,9 @@ export function ensureAppDataLayout(): void {
   }
   if (!existsSync(RESUME_OCR_DIR)) {
     mkdirSync(RESUME_OCR_DIR, { recursive: true });
+  }
+  const agentSkills = getAgentSkillsDir();
+  if (!existsSync(agentSkills)) {
+    mkdirSync(agentSkills, { recursive: true });
   }
 }
