@@ -102,7 +102,7 @@ export async function printBossInteractiveBanner(): Promise<void> {
   }
   await printTypewriterLine(`⭐ 欢迎使用 boss-cli ${CLI_VERSION}`, false);
   await printTypewriterLine(`🌟 GitHub: ${repoUrl}`, false);
-  await printTypewriterLine('❤️ 欢迎提交 Issue 或 Star', false);
+  await printTypewriterLine('✨ 欢迎提交 Issue 或 Star', false);
   await printTypewriterLine('💫 exit/quit 退出交互模式', false);
   await printTypewriterLine('🌠 输入 help 查看所有可用命令。', false);
   console.error('');
