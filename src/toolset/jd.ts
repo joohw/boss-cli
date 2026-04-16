@@ -152,6 +152,34 @@ type JobDetail = {
   workLocation: string;
 };
 
+function resolveTargetJob(jobs: JobListItem[], detailInput: string): JobListItem | null {
+  const raw = detailInput.trim();
+  if (!raw) return null;
+
+  const asIndex = Number.parseInt(raw, 10);
+  if (Number.isFinite(asIndex) && String(asIndex) === raw && asIndex >= 1 && asIndex <= jobs.length) {
+    return jobs[asIndex - 1] ?? null;
+  }
+
+  const exact = jobs.find((job) => job.title === raw);
+  if (exact) return exact;
+
+  const needle = raw.toLowerCase();
+  const fuzzy = jobs.filter((job) => job.title.toLowerCase().includes(needle));
+  if (fuzzy.length === 1) {
+    return fuzzy[0] ?? null;
+  }
+  if (fuzzy.length > 1) {
+    const picks = fuzzy
+      .slice(0, 8)
+      .map((j, idx) => `${idx + 1}. ${j.title}`)
+      .join('｜');
+    throw new Error(`“${raw}”命中多个职位，请改用更精确名称或序号。候选：${picks}`);
+  }
+
+  return null;
+}
+
 function stripControlChars(input: string): string {
   return input.replace(/[<>:"/\\|?*]/g, '_');
 }
@@ -490,11 +518,11 @@ export async function runListOpenPositions(
           `职位明细：\n${details}`,
         ].join('\n');
       }
-      const targetJob = jobs.find((job) => job.title === detailName);
+      const targetJob = resolveTargetJob(jobs, detailName);
       if (!targetJob) {
         const available = jobs.slice(0, 8).map((j) => j.title).join('｜');
         throw new Error(
-          `未找到职位“${detailName}”。可选职位：${available || '（空）'}`,
+          `未找到职位“${detailName}”（支持序号和模糊匹配）。可选职位：${available || '（空）'}`,
         );
       }
       const candidates = cacheFileCandidates(projectDir, targetJob.title);

@@ -7,12 +7,11 @@ import {
   runChatActionOnCurrentConversation,
   type ChatPageAction,
 } from './action.js';
-import { runSendChatMessage, type SendAction } from './send.js';
-import { implSkillCli } from './skill.js';
+import { runSendChatMessage } from './send.js';
 import { withChatPage } from '../browser/index.js';
 import { runBossSearch } from './search.js';
-
-export type { SendAction } from './send.js';
+import { runRecommend } from './recommend.js';
+import { runRecommendGreet } from './greet.js';
 export type { ChatPageAction };
 
 export async function implLogin(): Promise<string> {
@@ -43,11 +42,9 @@ export async function implChatAction(params: {
 
 export async function implSendMessage(params: {
   text: string;
-  action?: SendAction;
 }): Promise<string> {
   return runSendChatMessage({
     text: params.text || undefined,
-    action: params.action,
   });
 }
 
@@ -65,10 +62,14 @@ export async function implListPositionsWithOptions(opts: {
   });
 }
 
-export async function implSkill(tail: string[]): Promise<string> {
-  return implSkillCli(tail);
-}
-
 export async function implBossSearch(): Promise<string> {
   return runBossSearch();
+}
+
+export async function implRecommend(jobKeyword?: string): Promise<string> {
+  return runRecommend(jobKeyword);
+}
+
+export async function implRecommendGreet(target: string): Promise<string> {
+  return runRecommendGreet(target);
 }

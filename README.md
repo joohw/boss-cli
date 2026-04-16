@@ -48,8 +48,10 @@ npm run build
 | `boss login`                                                 | 打开登录页（不校验登录状态；需自行完成登录）   |
 | `boss list [--unread]`                                       | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
 | `boss chat <姓名> [--strict]`                                 | 打开指定联系人会话；默认包含匹配，`--strict` 为精确匹配 |
-| `boss send [--text <内容>] [--action <…>]` | 可只发消息、只执行 action，或**两者同次**（先发消息再 action，步骤间默认随机间隔）；`request-resume` \| `agree-resume` \| `confuse-resume`（拒绝附件） |
-| `boss jd`                                                    | 读取本地 `~/.boss-cli/jd` 目录下的岗位 Markdown |
+| `boss send [--text <内容>]` | 仅发送消息文本到当前会话 |
+| `boss recommend [岗位关键字]` | 进入推荐页读取推荐列表；可传岗位关键字进行模糊匹配切换 |
+| `boss greet <姓名\|序号>` | 在推荐页对指定候选人点击“打招呼” |
+| `boss jd <name\|序号>`                                      | 按职位名称（支持模糊）或序号读取并缓存岗位详情 Markdown |
 
 旧名仍可用：`list-candidates`、`open-chat`、`send-message`、`list-positions`。
 

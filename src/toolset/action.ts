@@ -141,6 +141,52 @@ async function markCandidateNotFitWithoutReason(page: Page): Promise<string> {
   return '已标记为不合适（未选择原因，已点击底部确认按钮）。';
 }
 
+/** 在聊天页右侧操作区点击「换微信」。 */
+async function runExchangeWechat(page: Page): Promise<string> {
+  await ensureInCandidateChat(page, '换微信');
+
+  const availability = (await page.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, "");
+    const items = Array.from(
+      document.querySelectorAll(".operate-exchange-left .operate-icon-item, .operate-icon-item"),
+    );
+    const target = items.find((el) => norm(el.querySelector(".operate-btn")?.textContent).includes("换微信"));
+    if (!target) return { found: false, available: false };
+    const btn = target.querySelector(".operate-btn");
+    const className = [target.className ?? "", btn?.className ?? ""].join(" ");
+    const disabled = /disabled|forbid|ban/i.test(className) || btn?.getAttribute("disabled") !== null;
+    return { found: true, available: !disabled };
+  })()`)) as { found: boolean; available: boolean };
+  if (!availability.found) {
+    throw new Error('未找到“换微信”按钮，当前页面可能不支持该操作。');
+  }
+  if (!availability.available) {
+    throw new Error('当前“换微信”按钮不可用，请先确认会话状态是否满足交换条件。');
+  }
+
+  await sleepRandom(220, 620);
+
+  const clicked = (await page.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, "");
+    const items = Array.from(
+      document.querySelectorAll(".operate-exchange-left .operate-icon-item, .operate-icon-item"),
+    );
+    const target = items.find((el) => norm(el.querySelector(".operate-btn")?.textContent).includes("换微信"));
+    if (!target) return false;
+    const btn = target.querySelector(".operate-btn");
+    const host = btn || target;
+    host.scrollIntoView({ block: "center", inline: "nearest" });
+    host.click();
+    return true;
+  })()`)) as boolean;
+  if (!clicked) {
+    throw new Error('点击“换微信”失败，请确认当前会话是否仍处于可操作状态。');
+  }
+
+  await sleepRandom(320, 860);
+  return '已点击“换微信”。';
+}
+
 /**
  * 在聊天页通过「更多 -> 备注」更新候选人备注，并点击确认保存。
  */
@@ -447,7 +493,13 @@ async function captureOnlineResumeScreenshot(page: Page, candidateLabel: string)
   }
 }
 
-export type ChatPageAction = 'resume' | 'not-fit' | 'remark' | 'agree-resume' | 'history';
+export type ChatPageAction =
+  | 'resume'
+  | 'not-fit'
+  | 'remark'
+  | 'agree-resume'
+  | 'history'
+  | 'exchange-wechat';
 
 export async function runChatActionOnCurrentConversation(
   page: Page,
@@ -479,6 +531,8 @@ export async function runChatActionOnCurrentConversation(
     }
     case 'agree-resume':
       return runIncomingResumeCardAction(page, 'agree');
+    case 'exchange-wechat':
+      return runExchangeWechat(page);
     case 'history':
       return runGetCommunicationHistory(page);
     default: {

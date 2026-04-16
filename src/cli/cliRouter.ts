@@ -14,10 +14,10 @@ import {
   implListPositions,
   implListPositionsWithOptions,
   implOpenChat,
+  implRecommend,
+  implRecommendGreet,
   implSendMessage,
-  implSkill,
   type ChatPageAction,
-  type SendAction,
 } from '../toolset/index.js';
 import { printBossInteractiveBanner } from './banner.js';
 
@@ -134,23 +134,24 @@ function printHelp(): void {
       读取「全部」聊天列表候选人；--unread 仅显示未读（角标>0）
   boss chat <姓名> [--strict]
       打开指定联系人会话；默认包含匹配，--strict 为精确匹配
+      仅用于已建立联系的候选人（即在 list 里可见的会话对象）
   boss action <操作> [--remark <备注>]
       仅在当前聊天页已打开候选人详情时执行操作，并只返回 action 执行结果
-      操作: resume | not-fit | remark | agree-resume | history
+      操作: resume | not-fit | remark | agree-resume | history | exchange-wechat
       操作为 remark 时必须提供 --remark
-  boss send [--text <内容>] [-t <内容>] [--action <操作>]
-      --text 与 --action 可同时使用；先发消息再执行 action，中间有默认随机间隔
-      --action: request-resume | agree-resume | confuse-resume（confuse-resume=拒绝附件）；须至少 text 或 action 其一
+  boss send [--text <内容>] [-t <内容>]
+      仅发送文本消息（等价于在当前会话输入框发送后回车）
   boss positions
       读取当前职位列表（含开放/待开放/已关闭状态）
-  boss jd <name>
+  boss jd <name|序号>
       抓取指定职位详情并缓存到项目目录同名 .md
   boss search
       从侧边栏进入「深度搜索」并触发一次“立即匹配”
-  boss skill
-      输出本包 Agent Skill 的说明
-  boss skill install  |  boss skill uninstall
-      安装或移除唯一 Skill（boss-cli）到 ~/.agents/skills/（可用 BOSS_AGENT_SKILLS_DIR 覆盖根目录）
+  boss recommend [岗位关键字]
+      进入推荐页并读取推荐列表；带岗位关键字时先在岗位下拉中模糊匹配并切换
+  boss greet <姓名|序号>
+      在推荐页对指定候选人点击“打招呼”
+      会消耗打招呼次数且单次成本较高，请谨慎使用
 `);
 }
 
@@ -259,10 +260,13 @@ export async function executeCommand(argv: string[]): Promise<string> {
       'agree-resume': 'agree-resume',
       history: 'history',
       'chat-history': 'history',
+      'exchange-wechat': 'exchange-wechat',
     };
     const action = actionMap[raw];
     if (!action) {
-      die('❌ 用法: action <resume|not-fit|remark|agree-resume|history> [--remark <备注>]');
+      die(
+        '❌ 用法: action <resume|not-fit|remark|agree-resume|history|exchange-wechat> [--remark <备注>]',
+      );
     }
     const remark = (opts.remark ?? '').trim();
     if (action === 'remark' && !remark) {
@@ -274,25 +278,10 @@ export async function executeCommand(argv: string[]): Promise<string> {
   if (cmd === 'send') {
     const { opts } = parseOpts(tail);
     const text = opts.text?.trim() || opts.t?.trim() || '';
-    const raw = (opts.action ?? '').trim().toLowerCase();
-    const actionMap: Record<string, SendAction> = {
-      'request-resume': 'request-resume',
-      'agree-resume': 'agree-resume',
-      'confuse-resume': 'confuse-resume',
-    };
-    let action: SendAction | undefined;
-    if (raw) {
-      action = actionMap[raw];
-      if (!action) {
-        die(`❌ 未知 --action “${raw}”，可选：request-resume | agree-resume | confuse-resume`);
-      }
+    if (!text) {
+      die('❌ 用法: send [--text <消息>] [-t <消息>]');
     }
-    if (!text && !action) {
-      die(
-        '❌ 用法: send [--text <消息>] [-t <消息>] [--action request-resume|agree-resume|confuse-resume]（至少其一）',
-      );
-    }
-    return implSendMessage({ text, action });
+    return implSendMessage({ text });
   }
 
   if (cmd === 'positions') {
@@ -306,7 +295,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
   if (cmd === 'jd') {
     const { flags, opts, rest } = parseOpts(tail);
     if (flags.has('detail')) {
-      die('❌ jd 不再支持 --detail。请使用: jd <name>');
+      die('❌ jd 不再支持 --detail。请使用: jd <name|序号>');
     }
     if (flags.size > 0) {
       const unsupportedFlags = Array.from(flags).join(', --');
@@ -314,7 +303,7 @@ export async function executeCommand(argv: string[]): Promise<string> {
     }
     const detailName = rest.join(' ').trim();
     if (!detailName) {
-      die('❌ 用法: jd <name>');
+      die('❌ 用法: jd <name|序号>');
     }
     const unknownOpts = Object.keys(opts);
     if (unknownOpts.length > 0) {
@@ -331,8 +320,25 @@ export async function executeCommand(argv: string[]): Promise<string> {
     return implBossSearch();
   }
 
-  if (cmd === 'skill') {
-    return implSkill(tail);
+  if (cmd === 'recommend') {
+    const { rest, opts, flags } = parseOpts(tail);
+    if (Object.keys(opts).length > 0 || flags.size > 0) {
+      die('❌ 用法: recommend [岗位关键字]');
+    }
+    const jobKeyword = rest.join(' ').trim();
+    return implRecommend(jobKeyword || undefined);
+  }
+
+  if (cmd === 'greet') {
+    const { rest, opts, flags } = parseOpts(tail);
+    if (Object.keys(opts).length > 0 || flags.size > 0) {
+      die('❌ 用法: greet <姓名|序号>');
+    }
+    const target = rest.join(' ').trim();
+    if (!target) {
+      die('❌ 用法: greet <姓名|序号>');
+    }
+    return implRecommendGreet(target);
   }
 
   die(`❌ 未知命令 “${argv[0]}”。输入 help 查看用法。`);
