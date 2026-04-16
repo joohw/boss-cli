@@ -20,6 +20,7 @@ import {
   type ChatPageAction,
 } from '../toolset/index.js';
 import { printBossInteractiveBanner } from './banner.js';
+import { printVersionInfo } from './version.js';
 
 class CliError extends Error {
   constructor(message: string) {
@@ -128,6 +129,8 @@ function printHelp(): void {
       进入交互模式；提示符 boss> ，exit / quit 退出；Ctrl+C 正常结束
   boss help
       显示本帮助
+  boss version | ver（或 -v / --version）
+      显示当前版本并检查 npm 是否有更新
   boss login
       打开登录页（需要在浏览器中自行完成登录）
   boss list [--unread]
@@ -402,6 +405,10 @@ async function runInteractiveLoop(): Promise<void> {
         printHelp();
         continue;
       }
+      if (/^(version|ver)$/i.test(trimmed) || /^(-v|--version)$/.test(trimmed)) {
+        await printVersionInfo();
+        continue;
+      }
       const argv = splitShellLine(trimmed);
       try {
         const stopSpinner = startProcessingSpinner();
@@ -423,6 +430,16 @@ async function runInteractiveLoop(): Promise<void> {
 export async function runCli(argv: string[]): Promise<void> {
   if (argv.length === 0) {
     await runInteractiveLoop();
+    return;
+  }
+
+  if (
+    argv[0] === 'version' ||
+    argv[0] === 'ver' ||
+    argv[0] === '-v' ||
+    argv[0] === '--version'
+  ) {
+    await printVersionInfo();
     return;
   }
 
