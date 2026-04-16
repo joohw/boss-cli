@@ -48,6 +48,7 @@ function blankBannerLine(useAnsi: boolean): void {
 export function printBossInteractiveBanner(): void {
   const useAnsi =
     !process.env.NO_COLOR && process.env.TERM !== 'dumb' && (process.stderr.isTTY ?? false);
+  const repoUrl = 'https://github.com/joohw/boss-cli';
 
   console.error('');
   if (useAnsi) {
@@ -63,5 +64,7 @@ export function printBossInteractiveBanner(): void {
     }
     blankBannerLine(false);
   }
+  console.error(`GitHub: ${repoUrl}`);
+  console.error('欢迎 Star / 提交 Issue');
   console.error('');
 }

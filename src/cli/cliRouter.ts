@@ -212,6 +212,26 @@ function printStdout(text: string): void {
   }
 }
 
+function startProcessingSpinner(): () => void {
+  if (!output.isTTY) {
+    return () => {};
+  }
+
+  const frames = ['|', '/', '-', '\\'];
+  let idx = 0;
+  output.write(`${frames[idx]}\r`);
+  const timer = setInterval(() => {
+    idx = (idx + 1) % frames.length;
+    output.write(`${frames[idx]}\r`);
+  }, 90);
+  timer.unref();
+
+  return () => {
+    clearInterval(timer);
+    output.write(' \r');
+  };
+}
+
 /**
  * 执行一条子命令并返回结果（与传入 `process.argv` 切片语义一致，不含 `boss` 本身）。
  */
@@ -385,7 +405,10 @@ async function runInteractiveLoop(): Promise<void> {
       }
       const argv = splitShellLine(trimmed);
       try {
-        const text = await executeCommand(argv);
+        const stopSpinner = startProcessingSpinner();
+        const text = await executeCommand(argv).finally(() => {
+          stopSpinner();
+        });
         printStdout(text);
       } catch (e) {
         console.error(e instanceof Error ? e.message : e);
