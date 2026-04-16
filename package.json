@@ -1,7 +1,7 @@
 {
   "name": "@joohw/boss-cli",
   "version": "0.1.8",
-  "description": "Boss 直聘浏览器自动化 CLI（CDP + Puppeteer），供 Agent 运行时调用",
+  "description": "Boss 直聘 CLI，基于CDP协议，让Agent代替你的HR",
   "type": "module",
   "main": "dist/cli/index.js",
   "types": "dist/cli/index.d.ts",

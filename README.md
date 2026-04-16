@@ -1,8 +1,8 @@
 # boss-cli
 
-在终端里使用的 Boss 直聘沟通页自动化工具：**登录**、**候选人列表**、**打开会话**、**发送消息**，以及读取本地 `~/.boss-cli/jd` 岗位说明（纯 CLI，无 Agent 运行时）。
+在终端里使用的 Boss 直聘沟通页自动化工具：**登录**、**候选人列表**、**打开会话**、**发送消息**，以及读取本地 `~/.boss-cli/jd` 岗位说明。本仓库是**纯 CLI**（不内置对话式 Agent），可由脚本或外层 Agent 通过子进程调用。
 
-当前版本：`v0.1.8`
+发布版本以 npm 为准；本地可执行 `boss version`（或 `ver`、`-v`、`--version`）查看当前版本并比对 registry 最新版。
 
 ---
 
@@ -15,19 +15,29 @@
 
 ## 安装与本地运行
 
-全局安装（推荐）：
+### 全局安装（推荐）
 
 ```bash
-npm install -g @joohw/boss-cli
+npm install -g @joohw/boss-cli@latest
 ```
 
-安装后使用：
+### 权限不足时
+
+若全局安装报权限错误（例如无法写入 npm 全局目录），可：
+
+```bash
+sudo npm install -g @joohw/boss-cli@latest
+```
+
+业务数据仍会落在用户目录下的 `~/.boss-cli/`（含 JD、简历截图等缓存），与是否使用 `sudo` 安装无冲突。
+
+安装后查看使用说明：
 
 ```bash
 boss help
 ```
 
-从源码：
+### 从源码
 
 ```bash
 npm install
@@ -43,25 +53,30 @@ npm run build
 与 `boss help` 一致：
 
 
-| 用法                                                           | 说明                                |
-| ------------------------------------------------------------ | --------------------------------- |
-| `boss`                                                       | 交互模式                              |
-| `boss help`                                                  | 打印帮助                              |
-| `boss login`                                                 | 打开登录页（不校验登录状态；需自行完成登录）   |
-| `boss list [--unread]`                                       | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
-| `boss chat <姓名> [--strict]`                                 | 打开指定联系人会话；默认包含匹配，`--strict` 为精确匹配 |
-| `boss send [--text <内容>]` | 仅发送消息文本到当前会话 |
-| `boss recommend [岗位关键字]` | 进入推荐页读取推荐列表；可传岗位关键字进行模糊匹配切换 |
-| `boss greet <姓名\|序号>` | 在推荐页对指定候选人点击“打招呼” |
-| `boss jd <name\|序号>`                                      | 按职位名称（支持模糊）或序号读取并缓存岗位详情 Markdown |
+| 用法 | 说明 |
+| --- | --- |
+| `boss` | 交互模式 |
+| `boss help` | 打印帮助 |
+| `boss version` / `ver` / `-v` / `--version` | 显示当前版本并检查 npm 是否有更新 |
+| `boss login` | 打开登录页（不校验登录状态；需自行完成登录） |
+| `boss list [--unread]` | 读取「全部」聊天列表候选人；`--unread` 仅显示未读 |
+| `boss chat <姓名> [--strict]` | 打开指定联系人会话（须为已建立联系的候选人）；默认包含匹配，`--strict` 为精确匹配 |
+| `boss action <操作> [--remark <备注>]` | 在当前聊天页已打开候选人详情时执行操作；操作见下 |
+| `boss send [--text <内容>] [-t <内容>]` | 仅向当前会话发送文本消息 |
+| `boss positions` | 读取当前职位列表（含开放/待开放/已关闭） |
+| `boss jd <名称或序号>` | 抓取职位详情并缓存为 `~/.boss-cli/jd` 下同名 `.md` |
+| `boss search` | 从侧边栏进入「深度搜索」并触发一次「立即匹配」 |
+| `boss recommend [岗位关键字]` | 进入推荐页读取推荐列表；可传岗位关键字做模糊匹配切换 |
+| `boss greet <姓名或序号>` | 在推荐页对指定候选人点击「打招呼」（有次数成本，请谨慎使用） |
 
-旧名仍可用：`list-candidates`、`open-chat`、`send-message`、`list-positions`。
+**`action` 可用操作**：`resume`、`not-fit`、`remark`、`agree-resume`、`history`、`exchange-wechat`。操作为 `remark` 时必须提供 `--remark <备注>`。
+
 
 **交互模式**
 
 - 支持单引号/双引号包裹含空格的参数。
 - 启动时 banner 会展示当前版本号与 GitHub/Issue 提示，命令执行期间会显示纯字符处理动画。
-- 输入 `help` 查看帮助，`exit` / `quit` 退出；**Ctrl+C** 正常退出，不当作错误。
+- 输入 `help` 查看帮助，`version` / `ver` 查看版本与更新提示，`exit` / `quit` 退出；**Ctrl+C** 正常退出
 
 ---
 
