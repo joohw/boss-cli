@@ -10,9 +10,9 @@ import { runCli, isReadlineAbortError } from './cliRouter.js';
 
 const userEnvPath = join(APP_HOME, '.env');
 if (existsSync(userEnvPath)) {
-  loadEnv({ path: userEnvPath });
+  loadEnv({ path: userEnvPath, quiet: true });
 }
-loadEnv();
+loadEnv({ quiet: true });
 
 async function main() {
   const args = process.argv.slice(2);

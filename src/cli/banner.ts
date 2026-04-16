@@ -26,6 +26,8 @@ function padCenter(line: string, width: number): string {
 }
 
 const BANNER_LINES = BANNER_ART.map((line) => padCenter(line, BANNER_WIDTH));
+const TYPEWRITER_DELAY_MS = 5;
+const CLI_VERSION = 'v0.1.8';
 
 /** 黑底（40）+ 亮白字（97）+ 粗体，与空白行一致，保证整条色带对比度一致 */
 const BG = '\x1b[40m';
@@ -45,7 +47,41 @@ function blankBannerLine(useAnsi: boolean): void {
   }
 }
 
-export function printBossInteractiveBanner(): void {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function printTypewriterLine(line: string, useAnsi: boolean): Promise<void> {
+  if (!(process.stderr.isTTY ?? false)) {
+    if (useAnsi) {
+      console.error(styleBannerLine(line));
+    } else {
+      console.error(line);
+    }
+    return;
+  }
+
+  if (useAnsi) {
+    let built = '';
+    for (const ch of Array.from(line)) {
+      built += ch;
+      process.stderr.write(`\r${styleBannerLine(built.padEnd(BANNER_WIDTH, ' '))}`);
+      await sleep(TYPEWRITER_DELAY_MS);
+    }
+    process.stderr.write('\n');
+    return;
+  }
+
+  for (const ch of Array.from(line)) {
+    process.stderr.write(ch);
+    await sleep(TYPEWRITER_DELAY_MS);
+  }
+  process.stderr.write('\n');
+}
+
+export async function printBossInteractiveBanner(): Promise<void> {
   const useAnsi =
     !process.env.NO_COLOR && process.env.TERM !== 'dumb' && (process.stderr.isTTY ?? false);
   const repoUrl = 'https://github.com/joohw/boss-cli';
@@ -64,7 +100,10 @@ export function printBossInteractiveBanner(): void {
     }
     blankBannerLine(false);
   }
-  console.error(`GitHub: ${repoUrl}`);
-  console.error('欢迎 Star / 提交 Issue');
+  await printTypewriterLine(`⭐ 欢迎使用 boss-cli ${CLI_VERSION}`, false);
+  await printTypewriterLine(`🌟 GitHub: ${repoUrl}`, false);
+  await printTypewriterLine('❤️ 欢迎提交 Issue 或 Star', false);
+  await printTypewriterLine('💫 exit/quit 退出交互模式', false);
+  await printTypewriterLine('🌠 输入 help 查看所有可用命令。', false);
   console.error('');
 }

@@ -379,8 +379,7 @@ export async function runOneCommand(argv: string[]): Promise<void> {
 
 async function runInteractiveLoop(): Promise<void> {
   const rl = createInterface({ input, output, terminal: true });
-  printBossInteractiveBanner();
-  console.error('欢迎使用 boss-cli。输入 help 查看可用命令，exit / quit 退出。\n');
+  await printBossInteractiveBanner();
   try {
     for (;;) {
       let line: string;
