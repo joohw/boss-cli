@@ -1,10 +1,19 @@
 import type { Browser, Page } from 'puppeteer-core';
+import {
+  hideAgentOperatingIndicator,
+  showAgentOperatingIndicator,
+} from './agent_operating_indicator.js';
 import { ensureBrowserSession, getBrowserRef, getPageRef, setSessionPage } from './browser_session.js';
 import { CONTEXT_DESTROY_RETRY_MS } from './human_delay.js';
 import { sleepRandom } from './timing.js';
 
 const SHOULD_DISABLE_JS =
   process.env.BOSS_BROWSER_DISABLE_JS === 'true' || process.env.BOSS_BROWSER_DISABLE_JS === '1';
+
+/** 设为 `1` / `true` 时不注入顶栏滚动提示（调试或截图对比用）。 */
+const SKIP_AGENT_OPERATING_OVERLAY =
+  process.env.BOSS_CLI_NO_AGENT_OVERLAY === '1' ||
+  process.env.BOSS_CLI_NO_AGENT_OVERLAY === 'true';
 
 async function pickExistingPage(browser: Browser): Promise<Page | null> {
   const pages = (await browser.pages()).filter((p) => !p.isClosed());
@@ -92,10 +101,10 @@ async function ensureMenuListStableAfterLoad(page: Page): Promise<void> {
 }
 
 /**
- * 获取 chat page 来执行回调：确保会话可用，并做菜单稳定性检测。
- * 不再主动导航到任何固定路由（如 `/web/chat/index`）；具体业务页由调用方自行要求。
+ * 在已连接浏览器、且当前页为 Boss 已登录主壳（含侧栏 `.menu-list` 稳定）的前提下执行回调。
+ * 不主动导航到固定路由；具体业务页由调用方自行要求。
  */
-export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
+export async function withBossSessionPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
   const isContextDestroyed = (e: unknown): boolean => {
     const msg = e instanceof Error ? e.message : String(e);
     return (
@@ -126,7 +135,18 @@ export async function withChatPage<T>(callback: (page: Page) => Promise<T>): Pro
       }
       await ensureMenuListStableAfterLoad(page);
 
-      return await callback(page);
+      if (!SHOULD_DISABLE_JS && !SKIP_AGENT_OPERATING_OVERLAY) {
+        await showAgentOperatingIndicator(page).catch(() => {
+          /* 注入失败不阻断业务 */
+        });
+      }
+      try {
+        return await callback(page);
+      } finally {
+        if (!SHOULD_DISABLE_JS && !SKIP_AGENT_OPERATING_OVERLAY) {
+          await hideAgentOperatingIndicator(page);
+        }
+      }
     } catch (e) {
       lastErr = e;
       if (attempt < maxAttempts - 1 && isContextDestroyed(e)) {

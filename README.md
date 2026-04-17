@@ -65,7 +65,7 @@ npm run build
 | `boss send [--text <内容>] [-t <内容>]` | 仅向当前会话发送文本消息 |
 | `boss positions` | 读取当前职位列表（含开放/待开放/已关闭） |
 | `boss jd <名称或序号>` | 抓取职位详情并缓存为 `~/.boss-cli/jd` 下同名 `.md` |
-| `boss search` | 从侧边栏进入「深度搜索」并触发一次「立即匹配」 |
+| `boss deep-search [岗位]` / `boss deep-search set ...` | 「深度搜索」：读列表或带岗触发「立即匹配」；`set` 仅配置表单条件 |
 | `boss recommend [岗位关键字]` | 进入推荐页读取推荐列表；可传岗位关键字做模糊匹配切换 |
 | `boss greet <姓名或序号>` | 在推荐页对指定候选人点击「打招呼」（有次数成本，请谨慎使用） |
 

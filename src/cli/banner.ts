@@ -27,7 +27,7 @@ function padCenter(line: string, width: number): string {
 
 const BANNER_LINES = BANNER_ART.map((line) => padCenter(line, BANNER_WIDTH));
 const TYPEWRITER_DELAY_MS = 5;
-const CLI_VERSION = 'v0.1.8';
+const CLI_VERSION = 'v0.1.9';
 
 /** 黑底（40）+ 亮白字（97）+ 粗体，与空白行一致，保证整条色带对比度一致 */
 const BG = '\x1b[40m';

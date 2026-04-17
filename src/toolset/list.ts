@@ -7,8 +7,9 @@ import {
   LIST_MIN_BEFORE_EMPTY_OK_MS,
   LIST_POLL_MS,
   sleepRandom,
-  withChatPage,
+  withBossSessionPage,
 } from '../browser/index.js';
+import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 
 type CandidateItem = {
   name: string;
@@ -62,49 +63,45 @@ async function clickChatFilterTabAll(page: Page): Promise<void> {
   })()`);
 }
 
-async function clickSidebarMenuToPath(
-  page: Page,
-  menuLabel: string,
-  targetPath: string,
-): Promise<void> {
-  const clicked = (await page.evaluate(
-    ({ label, path }) => {
-      const norm = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '');
-      const links = Array.from(document.querySelectorAll('.menu-list a'));
-      const target = links.find((a) => {
-        const href = a.getAttribute('href') ?? '';
-        if (href.includes(path)) {
-          return true;
-        }
-        const text = norm(a.querySelector('.menu-item-content span')?.textContent ?? a.textContent);
-        return text.includes(label);
-      });
-      if (!(target instanceof HTMLElement)) {
-        return false;
-      }
-      target.scrollIntoView({ block: 'center', inline: 'nearest' });
-      target.click();
-      return true;
-    },
-    { label: menuLabel, path: targetPath },
-  )) as boolean;
+/**
+ * 与 `list` 一致：若当前不在沟通列表则点侧栏「沟通」进入 `/web/chat/index`，
+ * 再点左侧筛选「全部」并等待列表稳定。`chat` 在按姓名找人前需处于该状态。
+ */
+export async function ensureChatIndexAllFilter(page: Page): Promise<void> {
+  const currentUrl = page.url();
+  if (!isBossChatIndexUrl(currentUrl)) {
+    await clickBossSidebarMenuToPath(page, '沟通', '/web/chat/index');
+    await sleepRandom(CHAT_GOTO_SETTLE_MS.min, CHAT_GOTO_SETTLE_MS.max);
+  }
 
-  if (!clicked) {
-    throw new Error(`未找到侧边栏菜单“${menuLabel}”，无法跳转到 ${targetPath}。`);
+  if (!isBossChatIndexUrl(page.url())) {
+    throw new Error('通过侧边栏“沟通”进入聊天列表页失败，请确认已登录并可访问 /web/chat/index。');
   }
 
   await page.waitForFunction(
-    (path) => {
-      try {
-        const p = window.location.pathname.replace(/\/+$/, '') || '/';
-        return p === path;
-      } catch {
-        return false;
-      }
-    },
-    { timeout: 15_000 },
-    targetPath,
+    `(() => {
+      const filter = document.querySelector(".chat-message-filter-left");
+      if (!filter) return false;
+      const tabs = Array.from(filter.querySelectorAll("span"));
+      if (tabs.length < 2) return false;
+      const list = document.querySelector(".chat-list, .chat-item-list, .geek-list");
+      const hasItems = document.querySelectorAll(".geek-item").length > 0;
+      return !!list || hasItems;
+    })()`,
+    { timeout: 12_000 },
   );
+
+  await clickChatFilterTabAll(page);
+  await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
+  await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
+  await clickChatFilterTabAll(page);
+  await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
+  await waitForCandidateListSettled(page, {
+    timeoutMs: 14_000,
+    pollMsMin: LIST_POLL_MS.min,
+    pollMsMax: LIST_POLL_MS.max,
+    minMsBeforeEmptyOk: LIST_MIN_BEFORE_EMPTY_OK_MS,
+  });
 }
 
 export async function runGetCandidateList(
@@ -113,41 +110,8 @@ export async function runGetCandidateList(
   const unreadOnly = opts.unreadOnly === true;
 
   try {
-    return await withChatPage(async (page) => {
-      const currentUrl = page.url();
-      if (!isBossChatIndexUrl(currentUrl)) {
-        await clickSidebarMenuToPath(page, '沟通', '/web/chat/index');
-        await sleepRandom(CHAT_GOTO_SETTLE_MS.min, CHAT_GOTO_SETTLE_MS.max);
-      }
-
-      if (!isBossChatIndexUrl(page.url())) {
-        throw new Error('通过侧边栏“沟通”进入聊天列表页失败，请确认已登录并可访问 /web/chat/index。');
-      }
-
-      await page.waitForFunction(
-        `(() => {
-          const filter = document.querySelector(".chat-message-filter-left");
-          if (!filter) return false;
-          const tabs = Array.from(filter.querySelectorAll("span"));
-          if (tabs.length < 2) return false;
-          const list = document.querySelector(".chat-list, .chat-item-list, .geek-list");
-          const hasItems = document.querySelectorAll(".geek-item").length > 0;
-          return !!list || hasItems;
-        })()`,
-        { timeout: 12_000 },
-      );
-
-      await clickChatFilterTabAll(page);
-      await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
-      await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
-      await clickChatFilterTabAll(page);
-      await sleepRandom(LIST_FILTER_GAP_MS.min, LIST_FILTER_GAP_MS.max);
-      await waitForCandidateListSettled(page, {
-        timeoutMs: 14_000,
-        pollMsMin: LIST_POLL_MS.min,
-        pollMsMax: LIST_POLL_MS.max,
-        minMsBeforeEmptyOk: LIST_MIN_BEFORE_EMPTY_OK_MS,
-      });
+    return await withBossSessionPage(async (page) => {
+      await ensureChatIndexAllFilter(page);
 
       const items = (await page.evaluate(
         `(() => {

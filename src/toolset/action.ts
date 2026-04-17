@@ -1,58 +1,28 @@
 import { join } from 'node:path';
 import type { Page } from 'puppeteer-core';
 import {
-  defaultViewportFromEnv,
   isBossChatIndexUrl,
   ONLINE_RESUME_IFRAME_APPEAR_MS,
   ONLINE_RESUME_IFRAME_SETTLE_MS,
+  ONLINE_RESUME_IFRAME_WAIT_MAX_MS,
   sleepRandom,
+  snapshotBossPageViewport,
 } from '../browser/index.js';
+import {
+  closeBossPaywallPopupIfPresent,
+  describeBossPaywallPopupIfPresent,
+  waitForCResumeIframeOrPaywall,
+} from '../common/boss_paywall_popup.js';
+import {
+  captureCResumeIframeToFile,
+  closeCResumePanel,
+  safeResumeScreenshotFileBase,
+} from '../common/c_resume_capture.js';
 import { ensureAppDataLayout, RESUME_SCREENSHOTS_DIR } from '../config.js';
 import { isResumeOcrEnabled, ocrResumePngToTextFile } from '../ocr/index.js';
 import { runGetCommunicationHistory } from './chat.js';
 
-/** 在线简历截图前临时拉高的视口高度（CSS px）。可用 `BOSS_RESUME_SCREENSHOT_VIEWPORT_HEIGHT` 覆盖。 */
-const ONLINE_RESUME_SNAPSHOT_VIEWPORT_HEIGHT_PX = 5000;
 type IncomingCardBtn = 'agree' | 'refuse';
-
-function safeResumeFileBase(name: string): string {
-  const t = name.replace(/[/\\?%*:|"<>]/g, '_').trim().slice(0, 64);
-  return t.length > 0 ? t : 'candidate';
-}
-
-function viewportForOnlineResumeSnapshot(
-  prev: Awaited<ReturnType<Page['viewport']>>,
-): NonNullable<Awaited<ReturnType<Page['viewport']>>> {
-  const envH = Number.parseInt(process.env.BOSS_RESUME_SCREENSHOT_VIEWPORT_HEIGHT?.trim() ?? '', 10);
-  const height =
-    Number.isFinite(envH) && envH > 0 ? envH : ONLINE_RESUME_SNAPSHOT_VIEWPORT_HEIGHT_PX;
-  const base = defaultViewportFromEnv();
-  return {
-    width: prev?.width ?? base.width,
-    height,
-    deviceScaleFactor: prev?.deviceScaleFactor ?? 1,
-    isMobile: prev?.isMobile ?? false,
-    hasTouch: prev?.hasTouch ?? false,
-    isLandscape: prev?.isLandscape ?? false,
-  };
-}
-
-function viewportRestoreAfterResumeSnapshot(
-  prev: Awaited<ReturnType<Page['viewport']>>,
-): NonNullable<Awaited<ReturnType<Page['viewport']>>> {
-  if (prev) {
-    return prev;
-  }
-  const d = defaultViewportFromEnv();
-  return {
-    width: d.width,
-    height: d.height,
-    deviceScaleFactor: 1,
-    isMobile: false,
-    hasTouch: false,
-    isLandscape: false,
-  };
-}
 
 function ensureInCandidateChat(page: Page, actionLabel: string): Promise<void> {
   return (async () => {
@@ -68,13 +38,43 @@ function ensureInCandidateChat(page: Page, actionLabel: string): Promise<void> {
 }
 
 /**
- * 在聊天页右侧操作区执行「不合适」：
- * 仅点击入口与底部确认按钮，不选择任何原因。
+ * 在聊天页右侧操作区执行「不合适」：该入口依赖 hover 后才响应真实点击，先派发 hover 再点一次。
  */
 async function markCandidateNotFitWithoutReason(page: Page): Promise<string> {
   await ensureInCandidateChat(page, '不合适');
 
-  const opened = (await page.evaluate(`(() => {
+  const hovered = (await page.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, "").trim();
+    function fireHover(el) {
+      if (!(el instanceof HTMLElement)) return;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      ["mouseover", "mouseenter", "mousemove"].forEach((type) => {
+        el.dispatchEvent(
+          new MouseEvent(type, { bubbles: true, cancelable: true, clientX: cx, clientY: cy, view: window }),
+        );
+      });
+    }
+    const roots = Array.from(document.querySelectorAll(".operate-exchange-right .operate-icon-item, .operate-icon-item"));
+    const target = roots.find((el) => {
+      const t = norm(el.querySelector(".operate-btn")?.textContent || el.textContent || "");
+      return t.includes("不合适");
+    });
+    if (!target) return false;
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+    fireHover(target);
+    const btn = target.querySelector(".operate-btn");
+    if (btn instanceof HTMLElement) fireHover(btn);
+    return true;
+  })()`)) as boolean;
+  if (!hovered) {
+    throw new Error('未找到“不合适”按钮，无法执行操作。');
+  }
+
+  await sleepRandom(200, 450);
+
+  const clicked = (await page.evaluate(`(() => {
     const norm = (v) => (v ?? "").replace(/\\s+/g, "").trim();
     const roots = Array.from(document.querySelectorAll(".operate-exchange-right .operate-icon-item, .operate-icon-item"));
     const target = roots.find((el) => {
@@ -83,62 +83,17 @@ async function markCandidateNotFitWithoutReason(page: Page): Promise<string> {
     });
     if (!target) return false;
     const btn = target.querySelector(".operate-btn");
-    const host = btn || target;
+    const host = btn instanceof HTMLElement ? btn : target;
     host.scrollIntoView({ block: "center", inline: "nearest" });
     host.click();
     return true;
   })()`)) as boolean;
-  if (!opened) {
-    throw new Error('未找到“不合适”按钮，无法执行操作。');
+  if (!clicked) {
+    throw new Error('未找到“不合适”按钮，无法执行点击。');
   }
 
-  await sleepRandom(260, 620);
-
-  const confirmed = (await page.evaluate(`(() => {
-    function norm(v) {
-      return (v ?? "").replace(/\\s+/g, "").trim();
-    }
-    function isVisible(el) {
-      if (!(el instanceof HTMLElement)) return false;
-      const st = window.getComputedStyle(el);
-      if (st.display === "none" || st.visibility === "hidden") return false;
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    }
-    const wrappers = Array.from(document.querySelectorAll(".not-fit-wrap"))
-      .filter((el) => isVisible(el) && !!el.querySelector(".main-content"));
-    if (wrappers.length === 0) return false;
-    const wrapper = wrappers[wrappers.length - 1];
-    const candidates = Array.from(
-      wrapper.querySelectorAll(
-        ".boss-btn-primary, .boss-btn, button, .footer .btn, .bottom .btn, .submit-btn, .confirm-btn",
-      ),
-    ).filter((el) => isVisible(el));
-    if (candidates.length === 0) return false;
-
-    const preferred = candidates.filter((el) => {
-      const t = norm(el.textContent);
-      return (
-        t.includes("确定") ||
-        t.includes("确认") ||
-        t.includes("提交") ||
-        t.includes("完成") ||
-        t.includes("不合适")
-      );
-    });
-    const pool = preferred.length > 0 ? preferred : candidates;
-    pool.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-    const target = pool[pool.length - 1];
-    target.scrollIntoView({ block: "center", inline: "nearest" });
-    target.click();
-    return true;
-  })()`)) as boolean;
-  if (!confirmed) {
-    throw new Error('已点击“不合适”，但未找到底部确认按钮。');
-  }
-
-  await sleepRandom(320, 880);
-  return '已标记为不合适（未选择原因，已点击底部确认按钮）。';
+  await sleepRandom(320, 780);
+  return '已点击「不合适」。';
 }
 
 /** 在聊天页右侧操作区点击「换微信」。 */
@@ -174,7 +129,7 @@ async function runExchangeWechat(page: Page): Promise<string> {
     const target = items.find((el) => norm(el.querySelector(".operate-btn")?.textContent).includes("换微信"));
     if (!target) return false;
     const btn = target.querySelector(".operate-btn");
-    const host = btn || target;
+    const host = btn instanceof HTMLElement ? btn : target;
     host.scrollIntoView({ block: "center", inline: "nearest" });
     host.click();
     return true;
@@ -183,8 +138,163 @@ async function runExchangeWechat(page: Page): Promise<string> {
     throw new Error('点击“换微信”失败，请确认当前会话是否仍处于可操作状态。');
   }
 
-  await sleepRandom(320, 860);
-  return '已点击“换微信”。';
+  await sleepRandom(280, 520);
+
+  await page.waitForFunction(
+    `(() => {
+      function isVisible(el) {
+        if (!(el instanceof HTMLElement)) return false;
+        const st = window.getComputedStyle(el);
+        if (st.display === "none" || st.visibility === "hidden") return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }
+      const tips = Array.from(document.querySelectorAll(".exchange-tooltip"));
+      for (const tip of tips) {
+        if (!isVisible(tip)) continue;
+        const raw = (tip.textContent ?? "").replace(/\\s+/g, "");
+        if (!raw.includes("交换微信")) continue;
+        const primary = tip.querySelector(".btn-box .boss-btn-primary");
+        return primary instanceof HTMLElement;
+      }
+      return false;
+    })()`,
+    { timeout: 12_000 },
+  );
+
+  const confirmed = (await page.evaluate(`(() => {
+    function isVisible(el) {
+      if (!(el instanceof HTMLElement)) return false;
+      const st = window.getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden") return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    }
+    function norm(v) {
+      return (v ?? "").replace(/\\s+/g, "").trim();
+    }
+    const tips = Array.from(document.querySelectorAll(".exchange-tooltip"));
+    for (const tip of tips) {
+      if (!isVisible(tip)) continue;
+      if (!norm(tip.textContent).includes("交换微信")) continue;
+      const primary = tip.querySelector(".btn-box .boss-btn-primary.boss-btn, .btn-box .boss-btn-primary");
+      if (!(primary instanceof HTMLElement)) continue;
+      if (!norm(primary.textContent).includes("确定")) continue;
+      primary.scrollIntoView({ block: "center", inline: "nearest" });
+      primary.click();
+      return true;
+    }
+    return false;
+  })()`)) as boolean;
+  if (!confirmed) {
+    throw new Error('已弹出交换微信确认框，但未点到「确定」按钮。');
+  }
+
+  await sleepRandom(320, 780);
+  return '已点击「换微信」并在弹窗中确认。';
+}
+
+/**
+ * 在聊天页左侧工具栏点击「求简历」，并在确认弹窗中点「确定」。
+ * 平台规则：双方需各至少发送一条消息后该入口才可点；否则按钮为禁用态。
+ */
+async function runRequestAttachmentResume(page: Page): Promise<string> {
+  await ensureInCandidateChat(page, '求简历');
+
+  const availability = (await page.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, "");
+    const items = Array.from(
+      document.querySelectorAll(".operate-exchange-left .operate-icon-item, .operate-icon-item"),
+    );
+    const target = items.find((el) => norm(el.querySelector(".operate-btn")?.textContent).includes("求简历"));
+    if (!target) return { found: false, available: false };
+    const btn = target.querySelector(".operate-btn");
+    const className = [target.className ?? "", btn?.className ?? ""].join(" ");
+    const disabled = /disabled|forbid|ban/i.test(className) || btn?.getAttribute("disabled") !== null;
+    return { found: true, available: !disabled };
+  })()`)) as { found: boolean; available: boolean };
+  if (!availability.found) {
+    throw new Error('未找到「求简历」按钮，当前页面可能不支持该操作。');
+  }
+  if (!availability.available) {
+    throw new Error(
+      '当前「求简历」不可用。Boss 要求双方各至少发送一条消息后才可以向对方请求附件简历，请先与对方互发消息后再试。',
+    );
+  }
+
+  await sleepRandom(220, 620);
+
+  const clicked = (await page.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, "");
+    const items = Array.from(
+      document.querySelectorAll(".operate-exchange-left .operate-icon-item, .operate-icon-item"),
+    );
+    const target = items.find((el) => norm(el.querySelector(".operate-btn")?.textContent).includes("求简历"));
+    if (!target) return false;
+    const btn = target.querySelector(".operate-btn");
+    const host = btn instanceof HTMLElement ? btn : target;
+    host.scrollIntoView({ block: "center", inline: "nearest" });
+    host.click();
+    return true;
+  })()`)) as boolean;
+  if (!clicked) {
+    throw new Error('点击「求简历」失败，请确认当前会话是否仍处于可操作状态。');
+  }
+
+  await sleepRandom(280, 520);
+
+  await page.waitForFunction(
+    `(() => {
+      function isVisible(el) {
+        if (!(el instanceof HTMLElement)) return false;
+        const st = window.getComputedStyle(el);
+        if (st.display === "none" || st.visibility === "hidden") return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }
+      const tips = Array.from(document.querySelectorAll(".exchange-tooltip"));
+      for (const tip of tips) {
+        if (!isVisible(tip)) continue;
+        const raw = (tip.textContent ?? "").replace(/\\s+/g, "");
+        if (!raw.includes("请求简历")) continue;
+        const primary = tip.querySelector(".btn-box .boss-btn-primary");
+        return primary instanceof HTMLElement;
+      }
+      return false;
+    })()`,
+    { timeout: 12_000 },
+  );
+
+  const confirmed = (await page.evaluate(`(() => {
+    function isVisible(el) {
+      if (!(el instanceof HTMLElement)) return false;
+      const st = window.getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden") return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    }
+    function norm(v) {
+      return (v ?? "").replace(/\\s+/g, "").trim();
+    }
+    const tips = Array.from(document.querySelectorAll(".exchange-tooltip"));
+    for (const tip of tips) {
+      if (!isVisible(tip)) continue;
+      if (!norm(tip.textContent).includes("请求简历")) continue;
+      const primary = tip.querySelector(".btn-box .boss-btn-primary.boss-btn, .btn-box .boss-btn-primary");
+      if (!(primary instanceof HTMLElement)) continue;
+      if (!norm(primary.textContent).includes("确定")) continue;
+      primary.scrollIntoView({ block: "center", inline: "nearest" });
+      primary.click();
+      return true;
+    }
+    return false;
+  })()`)) as boolean;
+  if (!confirmed) {
+    throw new Error('已弹出求简历确认框，但未点到「确定」按钮。');
+  }
+
+  await sleepRandom(320, 780);
+  return '已点击「求简历」并在弹窗中确认（将发送默认话术「方便发一份你的简历过来吗？」）。';
 }
 
 /**
@@ -316,38 +426,6 @@ async function updateCandidateRemark(page: Page, remarkText: string): Promise<st
   return `已更新备注: ${nextRemark}`;
 }
 
-async function closeOnlineResumePanel(page: Page): Promise<void> {
-  try {
-    await page.evaluate(() => {
-      const wraps = Array.from(document.querySelectorAll('.boss-popup__wrapper'));
-      for (const w of wraps) {
-        if (w.querySelector('iframe[src*="c-resume"], iframe[src*="frame/c-resume"]')) {
-          const c = w.querySelector('.boss-popup__close');
-          if (c) {
-            (c as HTMLElement).click();
-            return;
-          }
-        }
-      }
-      const iframe = document.querySelector(
-        'iframe[src*="c-resume"], iframe[src*="frame/c-resume"]',
-      );
-      let node: Element | null = iframe?.parentElement ?? null;
-      for (let i = 0; i < 12 && node; i++) {
-        const c = node.querySelector('.boss-popup__close, .drawer-close, .icon-close');
-        if (c) {
-          (c as HTMLElement).click();
-          return;
-        }
-        node = node.parentElement;
-      }
-    });
-    await sleepRandom(200, 450);
-  } catch {
-    /* ignore */
-  }
-}
-
 /**
  * 对方「附件简历」确认卡片上点击「同意」。
  * 对应按钮 disabled 时视为已处理。
@@ -425,12 +503,12 @@ async function getCandidateLabelForResumeShot(page: Page): Promise<string> {
  * 点击「在线简历」，对 `iframe` 元素整框截图（含视口外部分，见 `captureBeyondViewport`）。
  * 不依赖 `contentFrame()`，与内页是否 canvas / 跨域无关。
  *
- * 进入前记录 `page.viewport()`，截图前临时 `setViewport` 拉高（默认高度 5000），结束后恢复。
+ * 进入前记录视口（`snapshotBossPageViewport`，见 {@link captureCResumeIframeToFile}）。
  */
 async function captureOnlineResumeScreenshot(page: Page, candidateLabel: string): Promise<string | null> {
   ensureAppDataLayout();
 
-  const savedViewport = await page.viewport();
+  const savedViewport = await snapshotBossPageViewport(page);
 
   const opened = await page.evaluate(() => {
     const a = document.querySelector('a.resume-btn-online') as HTMLAnchorElement | null;
@@ -445,52 +523,27 @@ async function captureOnlineResumeScreenshot(page: Page, candidateLabel: string)
 
   await sleepRandom(ONLINE_RESUME_IFRAME_APPEAR_MS.min, ONLINE_RESUME_IFRAME_APPEAR_MS.max);
 
-  const hasIframe = await page
-    .waitForSelector('iframe[src*="c-resume"], iframe[src*="frame/c-resume"]', { timeout: 22_000 })
-    .catch(() => null);
-  if (!hasIframe) {
+  const outcome = await waitForCResumeIframeOrPaywall(page, ONLINE_RESUME_IFRAME_WAIT_MAX_MS);
+  if (outcome !== 'iframe') {
+    const paywall = await describeBossPaywallPopupIfPresent(page);
+    await closeBossPaywallPopupIfPresent(page);
+    if (paywall) {
+      throw new Error(paywall);
+    }
     return null;
   }
 
   await sleepRandom(ONLINE_RESUME_IFRAME_SETTLE_MS.min, ONLINE_RESUME_IFRAME_SETTLE_MS.max);
 
-  const fileName = `online-resume-${safeResumeFileBase(candidateLabel)}-${Date.now()}.png`;
+  const fileName = `online-resume-${safeResumeScreenshotFileBase(candidateLabel)}-${Date.now()}.png`;
   const absPath = join(RESUME_SCREENSHOTS_DIR, fileName);
 
-  try {
-    await page.setViewport(viewportForOnlineResumeSnapshot(savedViewport));
-    await sleepRandom(100, 320);
-
-    const iframe = await page.$('iframe[src*="c-resume"], iframe[src*="frame/c-resume"]');
-    if (!iframe) {
-      return null;
-    }
-
-    await iframe.evaluate((el) => {
-      (el as HTMLElement).scrollIntoView({ block: 'start', inline: 'nearest' });
-    });
-
-    const box = await iframe.boundingBox();
-    if (!box) {
-      await iframe.dispose();
-      return null;
-    }
-
-    try {
-      await iframe.screenshot({
-        path: absPath,
-        type: 'png',
-        captureBeyondViewport: true,
-      });
-    } finally {
-      await iframe.dispose();
-    }
-
-    await closeOnlineResumePanel(page);
-    return absPath;
-  } finally {
-    await page.setViewport(viewportRestoreAfterResumeSnapshot(savedViewport));
+  const ok = await captureCResumeIframeToFile(page, savedViewport, absPath);
+  if (!ok) {
+    await closeCResumePanel(page);
+    return null;
   }
+  return absPath;
 }
 
 export type ChatPageAction =
@@ -498,6 +551,7 @@ export type ChatPageAction =
   | 'not-fit'
   | 'remark'
   | 'agree-resume'
+  | 'request-attachment-resume'
   | 'history'
   | 'exchange-wechat';
 
@@ -531,6 +585,8 @@ export async function runChatActionOnCurrentConversation(
     }
     case 'agree-resume':
       return runIncomingResumeCardAction(page, 'agree');
+    case 'request-attachment-resume':
+      return runRequestAttachmentResume(page);
     case 'exchange-wechat':
       return runExchangeWechat(page);
     case 'history':

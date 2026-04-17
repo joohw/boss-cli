@@ -9,6 +9,7 @@ import {
   randomIntInclusive,
   sleepRandom,
 } from '../browser/index.js';
+import { ensureChatIndexAllFilter } from './list.js';
 
 type ChatFrom = 'friend' | 'myself' | 'system' | 'unknown';
 
@@ -255,9 +256,9 @@ export async function runOpenCandidateChat(
   const targetName = candidateName.trim();
 
   try {
-    const currentUrl = page.url();
-    if (!isBossChatIndexUrl(currentUrl)) {
-      throw new Error('请先进入聊天列表页（/web/chat/index）再打开候选人聊天。');
+    await ensureChatIndexAllFilter(page);
+    if (!isBossChatIndexUrl(page.url())) {
+      throw new Error('当前不在沟通列表页（/web/chat/index），无法打开候选人聊天。');
     }
 
     const norm = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, ' ').trim();

@@ -7,7 +7,7 @@ import {
   SEND_TYPING_GAP_MS,
   sleepRandom,
   typeTextWithRandomKeyDelay,
-  withChatPage,
+  withBossSessionPage,
 } from '../browser/index.js';
 
 export type SendChatMessageOptions = {
@@ -24,7 +24,7 @@ export async function runSendChatMessage(options: SendChatMessageOptions): Promi
   }
 
   try {
-    return await withChatPage(async (page) => {
+    return await withBossSessionPage(async (page) => {
       const currentUrl = page.url();
       if (!isBossChatIndexUrl(currentUrl)) {
         throw new Error('请先进入聊天列表页（/web/chat/index）并打开候选人聊天。');

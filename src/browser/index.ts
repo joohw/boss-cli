@@ -4,6 +4,16 @@
 export * from './timing.js';
 export * from './human_delay.js';
 export {
+  hideAgentOperatingIndicator,
+  showAgentOperatingIndicator,
+} from './agent_operating_indicator.js';
+export {
+  resumeHeight,
+  setTempHeight,
+  snapshotBossPageViewport,
+  type BossViewportSnapshot,
+} from './viewport_temp.js';
+export {
   connectBrowser,
   createPageCDPSession,
   defaultViewportFromEnv,
@@ -23,4 +33,4 @@ export {
 } from './browser_session.js';
 
 export * from './auth.js';
-export { withChatPage } from './chat.js';
+export { withBossSessionPage } from './chat.js';

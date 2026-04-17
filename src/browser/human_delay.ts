@@ -49,6 +49,12 @@ export const CHAT_HISTORY_TAB_SWITCH_MS = { min: 350, max: 900 } as const;
 /** 点击「在线简历」后等待 iframe 出现 */
 export const ONLINE_RESUME_IFRAME_APPEAR_MS = { min: 600, max: 1600 } as const;
 
+/**
+ * 点击后等待 c-resume iframe 出现、或判定为付费墙弹层的上限（毫秒）。
+ * 仅在未出现付费墙时才会接近该时长；若先出现付费墙会提前结束（见 `waitForCResumeIframeOrPaywall`）。
+ */
+export const ONLINE_RESUME_IFRAME_WAIT_MAX_MS = 12_000;
+
 /** iframe 出现后等待简历区域渲染 */
 export const ONLINE_RESUME_IFRAME_SETTLE_MS = { min: 1800, max: 4200 } as const;
 

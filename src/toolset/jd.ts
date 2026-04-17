@@ -3,8 +3,9 @@ import path from 'node:path';
 import {
   createWaitManualLoginRequiredText,
   sleepRandom,
-  withChatPage,
+  withBossSessionPage,
 } from '../browser/index.js';
+import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 import { JD_DIR } from '../config.js';
 import type { Frame, Page } from 'puppeteer-core';
 
@@ -57,51 +58,6 @@ function isBossChatJobListUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-async function clickSidebarMenuToPath(
-  page: Page,
-  menuLabel: string,
-  targetPath: string,
-): Promise<void> {
-  const clicked = (await page.evaluate(
-    ({ label, path }) => {
-      const norm = (v: string | null | undefined) => (v ?? '').replace(/\s+/g, '');
-      const links = Array.from(document.querySelectorAll('.menu-list a'));
-      const target = links.find((a) => {
-        const href = a.getAttribute('href') ?? '';
-        if (href.includes(path)) {
-          return true;
-        }
-        const text = norm(a.querySelector('.menu-item-content span')?.textContent ?? a.textContent);
-        return text.includes(label);
-      });
-      if (!(target instanceof HTMLElement)) {
-        return false;
-      }
-      target.scrollIntoView({ block: 'center', inline: 'nearest' });
-      target.click();
-      return true;
-    },
-    { label: menuLabel, path: targetPath },
-  )) as boolean;
-
-  if (!clicked) {
-    throw new Error(`未找到侧边栏菜单“${menuLabel}”，无法跳转到 ${targetPath}。`);
-  }
-
-  await page.waitForFunction(
-    (path) => {
-      try {
-        const p = window.location.pathname.replace(/\/+$/, '') || '/';
-        return p === path;
-      } catch {
-        return false;
-      }
-    },
-    { timeout: 15_000 },
-    targetPath,
-  );
 }
 
 type JobListItem = {
@@ -484,10 +440,10 @@ export async function runListOpenPositions(
   }
 
   try {
-    return await withChatPage(async (page) => {
+    return await withBossSessionPage(async (page) => {
       const currentUrl = page.url();
       if (!isBossChatJobListUrl(currentUrl)) {
-        await clickSidebarMenuToPath(page, '职位管理', '/web/chat/job/list');
+        await clickBossSidebarMenuToPath(page, '职位管理', '/web/chat/job/list');
         await sleepRandom(settleMin, settleMax);
       }
       if (!isBossChatJobListUrl(page.url())) {

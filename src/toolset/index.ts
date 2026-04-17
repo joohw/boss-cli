@@ -8,11 +8,12 @@ import {
   type ChatPageAction,
 } from './action.js';
 import { runSendChatMessage } from './send.js';
-import { withChatPage } from '../browser/index.js';
-import { runBossSearch } from './search.js';
-import { runRecommend } from './recommend.js';
+import { withBossSessionPage } from '../browser/index.js';
+import { runBossSearch, runBossSearchSet } from './deep-search.js';
+import { runRecommend, runRecommendPreview } from './recommend.js';
 import { runRecommendGreet } from './greet.js';
 export type { ChatPageAction };
+export type { DeepSearchGeekItem } from './deep-search.js';
 
 export async function implLogin(): Promise<string> {
   return runLogin();
@@ -30,14 +31,14 @@ export async function implOpenChat(
   candidateName: string,
   exact: boolean,
 ): Promise<string> {
-  return withChatPage(async (page) => runOpenCandidateChat(page, candidateName, exact));
+  return withBossSessionPage(async (page) => runOpenCandidateChat(page, candidateName, exact));
 }
 
 export async function implChatAction(params: {
   action: ChatPageAction;
   remark?: string;
 }): Promise<string> {
-  return withChatPage(async (page) => runChatActionOnCurrentConversation(page, params));
+  return withBossSessionPage(async (page) => runChatActionOnCurrentConversation(page, params));
 }
 
 export async function implSendMessage(params: {
@@ -62,12 +63,27 @@ export async function implListPositionsWithOptions(opts: {
   });
 }
 
-export async function implBossSearch(): Promise<string> {
-  return runBossSearch();
+export async function implBossSearch(opts: { jobKeyword?: string } = {}): Promise<string> {
+  return runBossSearch(opts);
+}
+
+export async function implBossSearchSet(opts: {
+  jobKeyword?: string;
+  coreRequirements?: string[];
+  bonusRequirements?: string[];
+}): Promise<string> {
+  return runBossSearchSet(opts);
 }
 
 export async function implRecommend(jobKeyword?: string): Promise<string> {
   return runRecommend(jobKeyword);
+}
+
+export async function implRecommendPreview(opts: {
+  candidateTarget: string;
+  jobKeyword?: string;
+}): Promise<string> {
+  return runRecommendPreview(opts);
 }
 
 export async function implRecommendGreet(target: string): Promise<string> {

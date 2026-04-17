@@ -6,7 +6,6 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { detachBrowserSession } from '../browser/index.js';
 import {
-  implBossSearch,
   implChatAction,
   implLogin,
   implListCandidates,
@@ -15,6 +14,7 @@ import {
   implListPositionsWithOptions,
   implOpenChat,
   implRecommend,
+  implRecommendPreview,
   implRecommendGreet,
   implSendMessage,
   type ChatPageAction,
@@ -140,7 +140,8 @@ function printHelp(): void {
       仅用于已建立联系的候选人（即在 list 里可见的会话对象）
   boss action <操作> [--remark <备注>]
       仅在当前聊天页已打开候选人详情时执行操作，并只返回 action 执行结果
-      操作: resume | not-fit | remark | agree-resume | history | exchange-wechat
+      操作: resume | not-fit | remark | agree-resume | request-attachment-resume | history | wechat
+      request-attachment-resume：工具栏「求简历」，确认后向对方发送默认话术索要附件简历（需双方各至少发过一条消息）
       操作为 remark 时必须提供 --remark
   boss send [--text <内容>] [-t <内容>]
       仅发送文本消息（等价于在当前会话输入框发送后回车）
@@ -148,12 +149,14 @@ function printHelp(): void {
       读取当前职位列表（含开放/待开放/已关闭状态）
   boss jd <name|序号>
       抓取指定职位详情并缓存到项目目录同名 .md
-  boss search
-      从侧边栏进入「深度搜索」并触发一次“立即匹配”
   boss recommend [岗位关键字]
       进入推荐页并读取推荐列表；带岗位关键字时先在岗位下拉中模糊匹配并切换
+  boss recommend preview <姓名|序号> [--job <岗位关键字>]
+      在推荐列表中打开指定候选人的在线简历预览（c-resume iframe）并保存整框截图到缓存目录
+      注意：平台对推荐在线简历每日可查看次数有限，请按需使用、谨慎查看
   boss greet <姓名|序号>
-      在推荐页对指定候选人点击“打招呼”
+      在「推荐」页（或当前已在 Boss 聊天侧栏打开的、含候选人列表的页面）对列表中的候选人点击“打招呼”
+      须先在对应页加载出候选人列表
       会消耗打招呼次数且单次成本较高，请谨慎使用
 `);
 }
@@ -281,14 +284,18 @@ export async function executeCommand(argv: string[]): Promise<string> {
       'not-fit': 'not-fit',
       remark: 'remark',
       'agree-resume': 'agree-resume',
+      'request-attachment-resume': 'request-attachment-resume',
+      'ask-attachment-resume': 'request-attachment-resume',
+      'ask-resume': 'request-attachment-resume',
       history: 'history',
       'chat-history': 'history',
+      wechat: 'exchange-wechat',
       'exchange-wechat': 'exchange-wechat',
     };
     const action = actionMap[raw];
     if (!action) {
       die(
-        '❌ 用法: action <resume|not-fit|remark|agree-resume|history|exchange-wechat> [--remark <备注>]',
+        '❌ 用法: action <resume|not-fit|remark|agree-resume|request-attachment-resume|history|wechat> [--remark <备注>]',
       );
     }
     const remark = (opts.remark ?? '').trim();
@@ -335,18 +342,30 @@ export async function executeCommand(argv: string[]): Promise<string> {
     return implListPositionsWithOptions({ detail: true, name: detailName });
   }
 
-  if (cmd === 'search') {
-    const { rest, opts, flags } = parseOpts(tail);
-    if (rest.length > 0 || Object.keys(opts).length > 0 || flags.size > 0) {
-      die('❌ 用法: search');
-    }
-    return implBossSearch();
+  if (cmd === 'deep-search' || cmd === 'deepsearch') {
+    die('❌ deep-search 已暂时从 CLI 中移除（体验不佳）；请使用 recommend 等命令。');
   }
 
   if (cmd === 'recommend') {
+    if (tail[0] === 'preview') {
+      const { rest, opts, flags } = parseOpts(tail.slice(1));
+      if (flags.size > 0) {
+        die('❌ recommend preview 不支持该 flag');
+      }
+      const disallowed = Object.keys(opts).filter((k) => k !== 'job');
+      if (disallowed.length > 0) {
+        die(`❌ recommend preview 不支持: --${disallowed[0]}`);
+      }
+      const candidateTarget = rest.join(' ').trim();
+      if (!candidateTarget) {
+        die('❌ 用法: recommend preview <姓名|序号> [--job <岗位关键字>]');
+      }
+      const jobKeyword = opts.job?.trim();
+      return implRecommendPreview({ candidateTarget, jobKeyword: jobKeyword || undefined });
+    }
     const { rest, opts, flags } = parseOpts(tail);
     if (Object.keys(opts).length > 0 || flags.size > 0) {
-      die('❌ 用法: recommend [岗位关键字]');
+      die('❌ 用法: recommend [岗位关键字] 或 recommend preview <姓名|序号> [--job <岗位>]');
     }
     const jobKeyword = rest.join(' ').trim();
     return implRecommend(jobKeyword || undefined);
