@@ -21,6 +21,11 @@ export function isBaiduOcrConfigured(): boolean {
 
 let cachedToken: { token: string; expiresAtMs: number } | null = null;
 
+/** 更换密钥后应调用，避免沿用旧 access_token。 */
+export function clearBaiduTokenCache(): void {
+  cachedToken = null;
+}
+
 /** 获取 access_token（带简单内存缓存，过期前 1 分钟刷新）。 */
 export async function getBaiduAccessToken(): Promise<string> {
   const client_id = apiKey();

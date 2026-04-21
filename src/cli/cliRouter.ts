@@ -16,6 +16,7 @@ import {
   implRecommend,
   implPreview,
   implRecommendGreet,
+  implSetBaiduCredentials,
   implBossSearch,
   implSendMessage,
   type ChatPageAction,
@@ -252,6 +253,22 @@ export async function executeCommand(argv: string[]): Promise<string> {
   const cmd = normalizeSubcommand(argv[0]);
   const tail = argv.slice(1);
   configureHeadlessForCommand(cmd);
+
+  if (cmd === '_baidu-keys') {
+    const { rest, opts } = parseOpts(tail);
+    let apiKey = (opts['api-key'] ?? opts.apikey ?? '').trim();
+    let secretKey = (opts['secret-key'] ?? opts.secretkey ?? '').trim();
+    if (!apiKey && rest.length >= 2) {
+      apiKey = rest[0]!.trim();
+      secretKey = rest.slice(1).join(' ').trim();
+    }
+    if (!apiKey || !secretKey) {
+      die(
+        '❌ 用法: _baidu-keys --api-key <KEY> --secret-key <SECRET>\n    或: _baidu-keys <KEY> <SECRET>（本命令不在 help 中列出）',
+      );
+    }
+    return implSetBaiduCredentials(apiKey, secretKey);
+  }
 
   if (cmd === 'login') {
     return implLogin();
