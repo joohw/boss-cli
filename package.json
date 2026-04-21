@@ -1,6 +1,6 @@
 {
   "name": "@joohw/boss-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Boss 直聘 CLI，基于CDP协议，让Agent代替你的HR",
   "type": "module",
   "main": "dist/cli/index.js",
