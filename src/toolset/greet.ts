@@ -1,11 +1,11 @@
 import {
-  createWaitManualLoginRequiredText,
   resumeHeight,
   setTempHeight,
   sleepRandom,
   snapshotBossPageViewport,
-  withBossSessionPage,
 } from '../browser/index.js';
+import { createWaitManualLoginRequiredText } from '../common/auth.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 import {
   clickGreet,
   ensureInRecommendPage,

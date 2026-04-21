@@ -31,6 +31,3 @@ export {
   getPageRef,
   setSessionPage,
 } from './browser_session.js';
-
-export * from './auth.js';
-export { withBossSessionPage } from './chat.js';

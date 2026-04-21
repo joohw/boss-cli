@@ -1,6 +1,9 @@
+/**
+ * Boss 直聘 URL 约定、登录态探测文案与 `Page` 上只读探测（不连 CDP、不启动浏览器）。
+ */
 import type { Page } from 'puppeteer-core';
-import { sleepRandom } from './timing.js';
-import { PROBE_LOGIN_POLL_MS } from './human_delay.js';
+import { PROBE_LOGIN_POLL_MS } from '../browser/human_delay.js';
+import { sleepRandom } from '../browser/timing.js';
 
 /** Boss 直聘首页 */
 export const BOSS_ZHIPIN_HOME = 'https://www.zhipin.com/';
@@ -15,6 +18,19 @@ export const BOSS_CHAT_INDEX_URL = 'https://www.zhipin.com/web/chat/index';
 /** 尚未有可用的浏览器会话时的提示文本（供工具抛错复用）。 */
 export function createWaitManualLoginRequiredText(action: string): string {
   return `浏览器尚未初始化，无法${action}。请先运行 boss login 并在浏览器中完成登录。`;
+}
+
+/** 当前 URL 是否属于 Boss 直聘站点（hostname 含 `zhipin.com`）；`about:blank` / 空 / 非法视为否 */
+export function isBossZhipinSiteUrl(url: string): boolean {
+  if (!url || url === 'about:blank') {
+    return false;
+  }
+  try {
+    const u = new URL(url);
+    return u.hostname.includes('zhipin.com');
+  } catch {
+    return false;
+  }
 }
 
 /** 当前 URL 是否为沟通页 `/web/chat/index`（允许带 query） */
@@ -154,4 +170,3 @@ export async function probeBossChatIndexLoggedIn(page: Page): Promise<boolean> {
   const { loggedIn } = await probeLoggedInFromPage(page);
   return loggedIn;
 }
-

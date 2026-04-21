@@ -1,10 +1,8 @@
 import process from 'node:process';
 import type { Page } from 'puppeteer-core';
-import {
-  createWaitManualLoginRequiredText,
-  sleepRandom,
-  withBossSessionPage,
-} from '../browser/index.js';
+import { sleepRandom } from '../browser/index.js';
+import { createWaitManualLoginRequiredText } from '../common/auth.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 
 const BOSS_CHAT_AI_FORM_URL = 'https://www.zhipin.com/web/chat/aiform';
@@ -811,7 +809,7 @@ async function readSearchFormSnapshot(page: Page): Promise<SearchFormSnapshot> {
   })()`)) as SearchFormSnapshot;
 }
 
-async function selectAiFormJob(page: Page, keyword: string): Promise<string> {
+export async function selectAiFormJob(page: Page, keyword: string): Promise<string> {
   const kw = keyword.trim();
   if (!kw) {
     throw new Error('岗位关键字不能为空。');
@@ -885,6 +883,87 @@ async function selectAiFormJob(page: Page, keyword: string): Promise<string> {
   }
   await sleepRandom(900, 1500);
   return picked.label ?? kw;
+}
+
+/** 深度搜索页当前选中的岗位文案（无则「默认」） */
+export async function readAiFormSelectedJobLabel(page: Page): Promise<string> {
+  return (await page.evaluate(`(() => {
+    const t = (document.querySelector(".job-dropmenu-select .job-main-text")?.textContent ?? "")
+      .replace(/\\s+/g, " ")
+      .trim();
+    return t.length > 0 ? t : "默认";
+  })()`)) as string;
+}
+
+/**
+ * 在深度搜索（aiform）主文档中按姓名或序号打开在线简历预览（与 {@link clickGreetDeepSearch} 同一卡片集合，排除「继续沟通」）。
+ */
+export async function openDeepSearchResumePreview(page: Page, target: string): Promise<boolean> {
+  const raw = target.trim();
+  const targetLiteral = JSON.stringify(raw);
+  return (await page.evaluate(`(() => {
+    const raw = ${targetLiteral};
+    const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
+    const allCards = Array.from(
+      document.querySelectorAll(".geeks-box .geek-card-item, .geek-card-list .geek-card-item"),
+    );
+    if (allCards.length === 0) return false;
+    const cards = allCards.filter((item) => {
+      const chatLabel = norm(item.querySelector(".geek-chat")?.textContent);
+      return !chatLabel.includes("继续沟通");
+    });
+    if (cards.length === 0) return false;
+
+    const idxNum = Number.parseInt(raw, 10);
+    var targetCard = null;
+    if (Number.isFinite(idxNum) && idxNum >= 1 && idxNum <= cards.length) {
+      targetCard = cards[idxNum - 1];
+    } else {
+      targetCard =
+        cards.find((item) => {
+          const name = norm(item.querySelector(".geek-name")?.textContent);
+          return name === raw || name.includes(raw);
+        }) ?? null;
+    }
+    if (!targetCard) return false;
+
+    function tryOpen(el) {
+      if (!(el instanceof HTMLElement)) return false;
+      if (el.classList.contains("disabled")) return false;
+      const st = window.getComputedStyle(el);
+      if (st.pointerEvents === "none" || Number(st.opacity) < 0.3) return false;
+      el.scrollIntoView({ block: "center", inline: "nearest" });
+      el.click();
+      return true;
+    }
+
+    const nameEl = targetCard.querySelector(".geek-name");
+    if (nameEl instanceof HTMLElement) {
+      nameEl.scrollIntoView({ block: "center", inline: "nearest" });
+      nameEl.click();
+      return true;
+    }
+
+    const resumeOnline = targetCard.querySelector("a.resume-btn-online");
+    if (tryOpen(resumeOnline)) return true;
+    const hrefResume = targetCard.querySelector('a[href*="c-resume"], a[href*="frame/c-resume"]');
+    if (tryOpen(hrefResume)) return true;
+
+    const links = Array.from(targetCard.querySelectorAll("a, button, .btn")).filter((node) => {
+      const t = norm(node.textContent);
+      return /在线简历|查看简历|简历预览|预览/.test(t);
+    });
+    if (links.length > 0 && tryOpen(links[0])) return true;
+
+    const geekInfo = targetCard.querySelector(".geek-info, .geek-card-main, .card-content");
+    if (geekInfo instanceof HTMLElement) {
+      geekInfo.scrollIntoView({ block: "center", inline: "nearest" });
+      geekInfo.click();
+      return true;
+    }
+
+    return false;
+  })()`)) as boolean;
 }
 
 export async function readDeepSearchGeekList(page: Page): Promise<DeepSearchGeekItem[]> {

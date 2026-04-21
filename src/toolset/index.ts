@@ -8,9 +8,10 @@ import {
   type ChatPageAction,
 } from './action.js';
 import { runSendChatMessage } from './send.js';
-import { withBossSessionPage } from '../browser/index.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 import { runBossSearch, runBossSearchSet } from './deep-search.js';
-import { runRecommend, runRecommendPreview } from './recommend.js';
+import { runRecommend } from './recommend.js';
+import { runPreview } from './preview.js';
 import { runRecommendGreet } from './greet.js';
 export type { ChatPageAction };
 export type { DeepSearchGeekItem } from './deep-search.js';
@@ -79,11 +80,11 @@ export async function implRecommend(jobKeyword?: string): Promise<string> {
   return runRecommend(jobKeyword);
 }
 
-export async function implRecommendPreview(opts: {
+export async function implPreview(opts: {
   candidateTarget: string;
   jobKeyword?: string;
 }): Promise<string> {
-  return runRecommendPreview(opts);
+  return runPreview(opts);
 }
 
 export async function implRecommendGreet(target: string): Promise<string> {

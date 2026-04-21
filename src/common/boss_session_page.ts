@@ -1,11 +1,21 @@
+/**
+ * Boss B 端「已登录主壳」会话：选页、必要时进入沟通页、侧栏 `.menu-list` 探测与稳定检测，
+ * 再执行 {@link withBossSessionPage} 回调。与 `src/toolset/chat.ts`（按姓名打开会话等业务）无关。
+ */
 import type { Browser, Page } from 'puppeteer-core';
+import { BOSS_CHAT_INDEX_URL, isBossZhipinSiteUrl } from './auth.js';
 import {
   hideAgentOperatingIndicator,
   showAgentOperatingIndicator,
-} from './agent_operating_indicator.js';
-import { ensureBrowserSession, getBrowserRef, getPageRef, setSessionPage } from './browser_session.js';
-import { CONTEXT_DESTROY_RETRY_MS } from './human_delay.js';
-import { sleepRandom } from './timing.js';
+} from '../browser/agent_operating_indicator.js';
+import {
+  ensureBrowserSession,
+  getBrowserRef,
+  getPageRef,
+  setSessionPage,
+} from '../browser/browser_session.js';
+import { CONTEXT_DESTROY_RETRY_MS } from '../browser/human_delay.js';
+import { sleepRandom } from '../browser/timing.js';
 
 const SHOULD_DISABLE_JS =
   process.env.BOSS_BROWSER_DISABLE_JS === 'true' || process.env.BOSS_BROWSER_DISABLE_JS === '1';
@@ -14,6 +24,9 @@ const SHOULD_DISABLE_JS =
 const SKIP_AGENT_OPERATING_OVERLAY =
   process.env.BOSS_CLI_NO_AGENT_OVERLAY === '1' ||
   process.env.BOSS_CLI_NO_AGENT_OVERLAY === 'true';
+
+/** Boss 为 SPA：`load` 后侧栏可能尚未挂载，需单独等待 `.menu-list` 出现 */
+const MENU_LIST_MOUNT_TIMEOUT_MS = 30_000;
 
 async function pickExistingPage(browser: Browser): Promise<Page | null> {
   const pages = (await browser.pages()).filter((p) => !p.isClosed());
@@ -69,15 +82,40 @@ async function readMenuListSnapshot(page: Page): Promise<MenuListSnapshot> {
   })()`)) as MenuListSnapshot;
 }
 
+/** 仅当当前页不在 Boss 站点（非 zhipin.com / 空白等）时进入沟通页，再交由 {@link ensureMenuListStableAfterLoad} 查 `.menu-list` */
+async function ensureBossZhipinLandingBeforeMenuList(page: Page): Promise<void> {
+  if (isBossZhipinSiteUrl(page.url())) {
+    return;
+  }
+  await page.goto(BOSS_CHAT_INDEX_URL, { waitUntil: 'load', timeout: 60_000 });
+}
+
 async function ensureMenuListStableAfterLoad(page: Page): Promise<void> {
   await page.waitForFunction(
     `(() => document.readyState === "complete" || document.readyState === "interactive")()`,
     { timeout: 12_000 },
   );
 
+  try {
+    await page.waitForFunction(
+      `(() => !!document.querySelector(".menu-list"))()`,
+      { timeout: MENU_LIST_MOUNT_TIMEOUT_MS },
+    );
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    const timedOut =
+      err.name === 'TimeoutError' || /timeout|waiting failed/i.test(err.message);
+    if (timedOut) {
+      throw new Error(
+        `在 ${MENU_LIST_MOUNT_TIMEOUT_MS / 1000}s 内未出现侧栏 .menu-list（页面或仍在加载，或未登录无法进入主壳）。`,
+      );
+    }
+    throw e;
+  }
+
   const first = await readMenuListSnapshot(page);
   if (!first.exists) {
-    throw new Error('未检测到 .menu-list，当前页面可能未登录或未进入 Boss 主界面。');
+    throw new Error('当前页面可能未登录或未进入 Boss 主界面。');
   }
   if (!normalizeMenuText(first.signature)) {
     throw new Error('检测到 .menu-list 但菜单内容为空，当前页面状态异常。');
@@ -102,7 +140,7 @@ async function ensureMenuListStableAfterLoad(page: Page): Promise<void> {
 
 /**
  * 在已连接浏览器、且当前页为 Boss 已登录主壳（含侧栏 `.menu-list` 稳定）的前提下执行回调。
- * 不主动导航到固定路由；具体业务页由调用方自行要求。
+ * 若当前不在 zhipin.com 则先进入沟通页 `/web/chat/index`，再校验侧栏；已在 Boss 站内（如推荐页）则不强制跳转。
  */
 export async function withBossSessionPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
   const isContextDestroyed = (e: unknown): boolean => {
@@ -130,6 +168,7 @@ export async function withBossSessionPage<T>(callback: (page: Page) => Promise<T
       }
       setSessionPage(page);
       await page.bringToFront();
+      await ensureBossZhipinLandingBeforeMenuList(page);
       if (SHOULD_DISABLE_JS) {
         await page.setJavaScriptEnabled(false);
       }
@@ -159,4 +198,3 @@ export async function withBossSessionPage<T>(callback: (page: Page) => Promise<T
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
-

@@ -1,14 +1,13 @@
 import {
-  createWaitManualLoginRequiredText,
-  isBossChatIndexUrl,
   randomIntInclusive,
   SEND_AFTER_ENTER_MS,
   SEND_INPUT_CLICK_MS,
   SEND_TYPING_GAP_MS,
   sleepRandom,
   typeTextWithRandomKeyDelay,
-  withBossSessionPage,
 } from '../browser/index.js';
+import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from '../common/auth.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 
 export type SendChatMessageOptions = {
   text?: string;

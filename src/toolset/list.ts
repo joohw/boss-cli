@@ -1,14 +1,13 @@
 import type { Page } from 'puppeteer-core';
 import {
   CHAT_GOTO_SETTLE_MS,
-  createWaitManualLoginRequiredText,
-  isBossChatIndexUrl,
   LIST_FILTER_GAP_MS,
   LIST_MIN_BEFORE_EMPTY_OK_MS,
   LIST_POLL_MS,
   sleepRandom,
-  withBossSessionPage,
 } from '../browser/index.js';
+import { createWaitManualLoginRequiredText, isBossChatIndexUrl } from '../common/auth.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 
 type CandidateItem = {

@@ -1,10 +1,8 @@
 import { access, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  createWaitManualLoginRequiredText,
-  sleepRandom,
-  withBossSessionPage,
-} from '../browser/index.js';
+import { sleepRandom } from '../browser/index.js';
+import { createWaitManualLoginRequiredText } from '../common/auth.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 import { JD_DIR } from '../config.js';
 import type { Frame, Page } from 'puppeteer-core';

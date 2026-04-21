@@ -1,26 +1,8 @@
-import { join } from 'node:path';
 import type { Frame, Page } from 'puppeteer-core';
-import {
-  createWaitManualLoginRequiredText,
-  ONLINE_RESUME_IFRAME_APPEAR_MS,
-  ONLINE_RESUME_IFRAME_SETTLE_MS,
-  ONLINE_RESUME_IFRAME_WAIT_MAX_MS,
-  sleepRandom,
-  snapshotBossPageViewport,
-  withBossSessionPage,
-} from '../browser/index.js';
+import { sleepRandom } from '../browser/index.js';
+import { createWaitManualLoginRequiredText } from '../common/auth.js';
+import { withBossSessionPage } from '../common/boss_session_page.js';
 import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
-import {
-  closeBossPaywallPopupIfPresent,
-  describeBossPaywallPopupIfPresent,
-  waitForCResumeIframeOrPaywall,
-} from '../common/boss_paywall_popup.js';
-import {
-  captureCResumeIframeToFile,
-  closeCResumePanel,
-  safeResumeScreenshotFileBase,
-} from '../common/c_resume_capture.js';
-import { ensureAppDataLayout, RESUME_SCREENSHOTS_DIR } from '../config.js';
 
 const BOSS_CHAT_RECOMMEND_URL = 'https://www.zhipin.com/web/chat/recommend';
 const RECOMMEND_SETTLE_MS = { min: 1400, max: 2400 } as const;
@@ -101,7 +83,7 @@ async function readCurrentRecommendJobLabel(frame: Frame): Promise<string> {
   })()`)) as string;
 }
 
-async function selectRecommendJob(frame: Frame, keyword: string): Promise<string> {
+export async function selectRecommendJob(frame: Frame, keyword: string): Promise<string> {
   const kw = keyword.trim();
   if (!kw) {
     return readCurrentRecommendJobLabel(frame);
@@ -166,6 +148,18 @@ export async function ensureInRecommendPage(page: Page): Promise<Frame> {
   }
   if (!isBossChatRecommendUrl(page.url())) {
     throw new Error('通过侧边栏“推荐”进入页面失败，请确认已登录并可访问 /web/chat/recommend。');
+  }
+  const frame = await getRecommendFrame(page);
+  await ensureRecommendFrameReady(frame);
+  return frame;
+}
+
+/**
+ * 供 `preview` 使用：不导航；若当前主页面不在推荐页或未就绪推荐 iframe，直接抛错。
+ */
+export async function assertRecommendPageReadyForPreview(page: Page): Promise<Frame> {
+  if (!isBossChatRecommendUrl(page.url())) {
+    throw new Error('当前不在推荐列表页或搜索结果页，无法预览候选人。');
   }
   const frame = await getRecommendFrame(page);
   await ensureRecommendFrameReady(frame);
@@ -441,65 +435,6 @@ export async function openRecommendResumePreview(frame: Frame, target: string): 
 
     return false;
   })()`)) as boolean;
-}
-
-export async function runRecommendPreview(options: {
-  candidateTarget: string;
-  jobKeyword?: string;
-}): Promise<string> {
-  const target = options.candidateTarget.trim();
-  if (!target) {
-    throw new Error('请提供候选人姓名或列表序号。');
-  }
-  try {
-    return await withBossSessionPage(async (page) => {
-      const frame = await ensureInRecommendPage(page);
-      const selectedJob = await selectRecommendJob(frame, (options.jobKeyword ?? '').trim());
-
-      const savedOriginal = await snapshotBossPageViewport(page);
-
-      const opened = await openRecommendResumePreview(frame, target);
-      if (!opened) {
-        throw new Error('未在推荐列表中找到该候选人，或点击卡片未能打开简历预览。');
-      }
-
-      await sleepRandom(ONLINE_RESUME_IFRAME_APPEAR_MS.min, ONLINE_RESUME_IFRAME_APPEAR_MS.max);
-      const outcome = await waitForCResumeIframeOrPaywall(page, ONLINE_RESUME_IFRAME_WAIT_MAX_MS);
-      if (outcome !== 'iframe') {
-        const paywall = await describeBossPaywallPopupIfPresent(page);
-        await closeBossPaywallPopupIfPresent(page);
-        if (paywall) {
-          throw new Error(paywall);
-        }
-        throw new Error('点击后未出现在线简历 iframe（c-resume）。');
-      }
-      await sleepRandom(ONLINE_RESUME_IFRAME_SETTLE_MS.min, ONLINE_RESUME_IFRAME_SETTLE_MS.max);
-
-      ensureAppDataLayout();
-      const fileName = `recommend-preview-${safeResumeScreenshotFileBase(target)}-${Date.now()}.png`;
-      const absPath = join(RESUME_SCREENSHOTS_DIR, fileName);
-
-      const ok = await captureCResumeIframeToFile(page, savedOriginal, absPath);
-      if (!ok) {
-        await closeCResumePanel(page);
-        throw new Error('在线简历 iframe 截图失败。');
-      }
-
-      const jobLine = selectedJob ? `当前岗位：${selectedJob}` : '当前岗位：默认';
-      return [
-        jobLine,
-        `推荐在线简历预览截图：${absPath}`,
-        '',
-        '说明：平台对推荐在线简历的每日可查看次数有限，请按需使用、谨慎查看。',
-      ].join('\n');
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    if (e instanceof Error && e.message.includes('浏览器会话尚未初始化')) {
-      throw new Error(createWaitManualLoginRequiredText('推荐在线简历预览截图'));
-    }
-    throw new Error(`推荐在线简历预览失败：${message}`);
-  }
 }
 
 export async function runRecommend(jobKeyword?: string): Promise<string> {

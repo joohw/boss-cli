@@ -1,16 +1,10 @@
 import type { Page } from 'puppeteer-core';
 import { ONLINE_RESUME_IFRAME_WAIT_MAX_MS } from '../browser/human_delay.js';
 import { sleepRandom } from '../browser/timing.js';
+import { frameHasVisibleCResumeIframe } from './c_resume_capture.js';
 
-/** 与 {@link describeBossPaywallPopupIfPresent} 中付费层判定一致；先匹配到 c-resume iframe 则返回 iframe。 */
-const WAIT_FOR_IFRAME_OR_PAYWALL_SCRIPT = `(() => {
-  const iframe = document.querySelector(
-    'iframe[src*="c-resume"], iframe[src*="frame/c-resume"]',
-  );
-  if (iframe instanceof HTMLElement) {
-    const r = iframe.getBoundingClientRect();
-    if (r.width > 8 && r.height > 8) return "iframe";
-  }
+/** 付费墙仅在主文档轮询（遮罩层挂在顶层）；与 {@link describeBossPaywallPopupIfPresent} 判定一致 */
+const HAS_PAYWALL_SCRIPT = `(() => {
   const roots = Array.from(
     document.querySelectorAll(".boss-popup__wrapper, .boss-dialog__wrapper"),
   );
@@ -31,35 +25,36 @@ const WAIT_FOR_IFRAME_OR_PAYWALL_SCRIPT = `(() => {
         text,
       );
     if (!hasVipUi && !hasPayText) continue;
-    return "paywall";
+    return true;
   }
-  return "";
+  return false;
 })()`;
 
 /**
- * 轮询直到出现 c-resume iframe、或出现付费墙、或超时。付费墙出现时不必再等满 {@link ONLINE_RESUME_IFRAME_WAIT_MAX_MS}。
+ * 轮询直到出现 c-resume iframe、或出现付费墙、或超时。
+ * c-resume 可能在主文档，也可能在 `recommendFrame` 等子 frame 内（推荐预览），故遍历 {@link Page.frames}。
  */
 export async function waitForCResumeIframeOrPaywall(
   page: Page,
   timeoutMs: number = ONLINE_RESUME_IFRAME_WAIT_MAX_MS,
 ): Promise<'iframe' | 'paywall' | 'neither'> {
-  try {
-    const handle = await page.waitForFunction(WAIT_FOR_IFRAME_OR_PAYWALL_SCRIPT, {
-      timeout: timeoutMs,
-      polling: 200,
-    });
-    const v = (await handle.jsonValue()) as unknown;
-    if (v === 'iframe' || v === 'paywall') {
-      return v;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const paywall = (await page.evaluate(HAS_PAYWALL_SCRIPT)) as boolean;
+    if (paywall) {
+      return 'paywall';
     }
-    return 'neither';
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/timeout|Timeout|exceeded|Waiting failed/i.test(msg)) {
-      return 'neither';
+
+    const frames = page.frames();
+    for (const frame of frames) {
+      if (await frameHasVisibleCResumeIframe(frame)) {
+        return 'iframe';
+      }
     }
-    throw e;
+
+    await sleepRandom(160, 240);
   }
+  return 'neither';
 }
 
 /**

@@ -2,13 +2,13 @@ import type { Page } from 'puppeteer-core';
 import {
   CHAT_HISTORY_DIALOG_WAIT_MS,
   CHAT_HISTORY_TAB_SWITCH_MS,
-  isBossChatIndexUrl,
   MOUSE_CLICK_PRESS_MS,
   OPEN_CHAT_AFTER_ROW_CLICK_MS,
   OPEN_CHAT_SCROLL_GAP_MS,
   randomIntInclusive,
   sleepRandom,
 } from '../browser/index.js';
+import { isBossChatIndexUrl } from '../common/auth.js';
 import { ensureChatIndexAllFilter } from './list.js';
 
 type ChatFrom = 'friend' | 'myself' | 'system' | 'unknown';

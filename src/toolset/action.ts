@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import type { Page } from 'puppeteer-core';
 import {
-  isBossChatIndexUrl,
   ONLINE_RESUME_IFRAME_APPEAR_MS,
   ONLINE_RESUME_IFRAME_SETTLE_MS,
   ONLINE_RESUME_IFRAME_WAIT_MAX_MS,
   sleepRandom,
   snapshotBossPageViewport,
 } from '../browser/index.js';
+import { isBossChatIndexUrl } from '../common/auth.js';
 import {
   closeBossPaywallPopupIfPresent,
   describeBossPaywallPopupIfPresent,

@@ -14,7 +14,7 @@ import {
   implListPositionsWithOptions,
   implOpenChat,
   implRecommend,
-  implRecommendPreview,
+  implPreview,
   implRecommendGreet,
   implSendMessage,
   type ChatPageAction,
@@ -151,13 +151,15 @@ function printHelp(): void {
       抓取指定职位详情并缓存到项目目录同名 .md
   boss recommend [岗位关键字]
       进入推荐页并读取推荐列表；带岗位关键字时先在岗位下拉中模糊匹配并切换
-  boss recommend preview <姓名|序号> [--job <岗位关键字>]
-      在推荐列表中打开指定候选人的在线简历预览（c-resume iframe）并保存整框截图到缓存目录
-      注意：平台对推荐在线简历每日可查看次数有限，请按需使用、谨慎查看
+  boss preview <姓名|序号> [--job <岗位关键字>]
+      在线简历预览：须当前已在「推荐」(/web/chat/recommend) 或「深度搜索」(/web/chat/aiform) 且列表已加载；不会自动跳转
+      注意：平台对在线简历每日可查看次数有限，请按需使用、谨慎查看
   boss greet <姓名|序号>
       在「推荐」页（或当前已在 Boss 聊天侧栏打开的、含候选人列表的页面）对列表中的候选人点击“打招呼”
       须先在对应页加载出候选人列表
       会消耗打招呼次数且单次成本较高，请谨慎使用
+  boss deep-search [岗位关键字]（别名 deepsearch）
+      「深度搜索」：已暂时从 CLI 中移除（体验不佳）；请使用 recommend、greet 等命令
 `);
 }
 
@@ -346,26 +348,30 @@ export async function executeCommand(argv: string[]): Promise<string> {
     die('❌ deep-search 已暂时从 CLI 中移除（体验不佳）；请使用 recommend 等命令。');
   }
 
-  if (cmd === 'recommend') {
-    if (tail[0] === 'preview') {
-      const { rest, opts, flags } = parseOpts(tail.slice(1));
-      if (flags.size > 0) {
-        die('❌ recommend preview 不支持该 flag');
-      }
-      const disallowed = Object.keys(opts).filter((k) => k !== 'job');
-      if (disallowed.length > 0) {
-        die(`❌ recommend preview 不支持: --${disallowed[0]}`);
-      }
-      const candidateTarget = rest.join(' ').trim();
-      if (!candidateTarget) {
-        die('❌ 用法: recommend preview <姓名|序号> [--job <岗位关键字>]');
-      }
-      const jobKeyword = opts.job?.trim();
-      return implRecommendPreview({ candidateTarget, jobKeyword: jobKeyword || undefined });
-    }
+  if (cmd === 'preview') {
     const { rest, opts, flags } = parseOpts(tail);
+    if (flags.size > 0) {
+      die('❌ preview 不支持该 flag');
+    }
+    const disallowed = Object.keys(opts).filter((k) => k !== 'job');
+    if (disallowed.length > 0) {
+      die(`❌ preview 不支持: --${disallowed[0]}`);
+    }
+    const candidateTarget = rest.join(' ').trim();
+    if (!candidateTarget) {
+      die('❌ 用法: preview <姓名|序号> [--job <岗位关键字>]');
+    }
+    const jobKeyword = opts.job?.trim();
+    return implPreview({ candidateTarget, jobKeyword: jobKeyword || undefined });
+  }
+
+  if (cmd === 'recommend') {
+    const { rest, opts, flags } = parseOpts(tail);
+    if (rest[0] === 'preview') {
+      die('❌ 请改用: boss preview <姓名|序号> [--job <岗位关键字>]（已不再使用 recommend preview）');
+    }
     if (Object.keys(opts).length > 0 || flags.size > 0) {
-      die('❌ 用法: recommend [岗位关键字] 或 recommend preview <姓名|序号> [--job <岗位>]');
+      die('❌ 用法: recommend [岗位关键字]');
     }
     const jobKeyword = rest.join(' ').trim();
     return implRecommend(jobKeyword || undefined);
@@ -401,7 +407,7 @@ export async function runOneCommand(argv: string[]): Promise<void> {
 
 async function runInteractiveLoop(): Promise<void> {
   const rl = createInterface({ input, output, terminal: true });
-  await printBossInteractiveBanner();
+  printBossInteractiveBanner();
   try {
     for (;;) {
       let line: string;
