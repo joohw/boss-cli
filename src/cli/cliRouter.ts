@@ -16,6 +16,7 @@ import {
   implRecommend,
   implPreview,
   implRecommendGreet,
+  implBossSearch,
   implSendMessage,
   type ChatPageAction,
 } from '../toolset/index.js';
@@ -159,7 +160,7 @@ function printHelp(): void {
       须先在对应页加载出候选人列表
       会消耗打招呼次数且单次成本较高，请谨慎使用
   boss deep-search [岗位关键字]（别名 deepsearch）
-      「深度搜索」：已暂时从 CLI 中移除（体验不佳）；请使用 recommend、greet 等命令
+      进入「深度搜索」页并输出当前匹配结果列表；可选岗位关键字仅切换下拉框。不会点击「立即匹配」
 `);
 }
 
@@ -345,7 +346,12 @@ export async function executeCommand(argv: string[]): Promise<string> {
   }
 
   if (cmd === 'deep-search' || cmd === 'deepsearch') {
-    die('❌ deep-search 已暂时从 CLI 中移除（体验不佳）；请使用 recommend 等命令。');
+    const { rest, opts, flags } = parseOpts(tail);
+    if (flags.size > 0 || Object.keys(opts).length > 0) {
+      die('❌ 用法: deep-search [岗位关键字]');
+    }
+    const jobKeyword = rest.join(' ').trim();
+    return implBossSearch(jobKeyword ? { jobKeyword } : {});
   }
 
   if (cmd === 'preview') {

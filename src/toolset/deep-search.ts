@@ -996,26 +996,6 @@ export async function readDeepSearchGeekList(page: Page): Promise<DeepSearchGeek
   })()`)) as DeepSearchGeekItem[];
 }
 
-async function waitForAiMatchSettled(page: Page): Promise<void> {
-  await page
-    .waitForFunction(
-      `(() =>
-        (document.querySelector(".ai-form-match-footer .light-flow-btn-content .text")?.textContent ?? "").includes(
-          "停止匹配",
-        ))()`,
-      { timeout: 10_000 },
-    )
-    .catch(() => {});
-  await page.waitForFunction(
-    `(() =>
-      !(document.querySelector(".ai-form-match-footer .light-flow-btn-content .text")?.textContent ?? "").includes(
-        "停止匹配",
-      ))()`,
-    { timeout: 120_000 },
-  );
-  await sleepRandom(500, 900);
-}
-
 export function renderGeekListSection(title: string, items: DeepSearchGeekItem[]): string {
   const lines: string[] = [title, `共 ${items.length} 人`, ''];
   items.forEach((g, i) => {
@@ -1105,7 +1085,7 @@ export async function clickGreetDeepSearch(page: Page, target: string): Promise<
 
   switch (result.kind) {
     case 'empty':
-      throw new Error('深度搜索暂无候选人列表，请先执行「立即匹配」或使用 boss deep-search <岗位> 触发匹配。');
+      throw new Error('深度搜索暂无候选人列表，请先在页面点击「立即匹配」后再试。');
     case 'all_continue':
       throw new Error('当前列表均为「继续沟通」状态，已无待打招呼人选（与 boss deep-search 列表展示一致）。');
     case 'not_found':
@@ -1127,38 +1107,6 @@ export async function clickGreetDeepSearch(page: Page, target: string): Promise<
   }
 }
 
-async function clickMatchNow(page: Page): Promise<void> {
-  const clicked = (await page.evaluate(`(() => {
-    function norm(v) {
-      return (v ?? "").replace(/\\s+/g, "").trim();
-    }
-    function isVisible(el) {
-      if (!(el instanceof HTMLElement)) return false;
-      const st = window.getComputedStyle(el);
-      if (st.display === "none" || st.visibility === "hidden") return false;
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    }
-    const buttons = Array.from(
-      document.querySelectorAll(".ai-form-match-footer .btn-ai-match-v2, .ai-form-match-footer-btn .btn-ai-common, .ai-form-match-footer-btn .light-flow-btn-content"),
-    ).filter((el) => isVisible(el));
-    if (buttons.length === 0) {
-      return false;
-    }
-    const preferred = buttons.find((el) => norm(el.textContent).includes("立即匹配")) ?? buttons[0];
-    if (!(preferred instanceof HTMLElement)) {
-      return false;
-    }
-    preferred.scrollIntoView({ block: "center", inline: "nearest" });
-    preferred.click();
-    return true;
-  })()`)) as boolean;
-
-  if (!clicked) {
-    throw new Error('未找到“立即匹配”按钮，无法执行深度搜索。');
-  }
-}
-
 function renderFormSnapshotOnly(snap: SearchFormSnapshot): string {
   const core = snap.coreRequirements.length > 0 ? snap.coreRequirements.join('｜') : '（空）';
   const bonus = snap.bonusRequirements.length > 0 ? snap.bonusRequirements.join('｜') : '（空）';
@@ -1168,23 +1116,6 @@ function renderFormSnapshotOnly(snap: SearchFormSnapshot): string {
     `核心要求(${snap.coreRequirements.length})：${core}`,
     `加分项(${snap.bonusRequirements.length})：${bonus}`,
     `今日匹配剩余：${snap.remainingCountText || '未知'}`,
-    `来源页面：${BOSS_CHAT_AI_FORM_URL}`,
-  ].join('\n');
-}
-
-function renderMatchSummaryText(before: SearchFormSnapshot, after: SearchFormSnapshot): string {
-  const core = before.coreRequirements.length > 0 ? before.coreRequirements.join('｜') : '（空）';
-  const bonus = before.bonusRequirements.length > 0 ? before.bonusRequirements.join('｜') : '（空）';
-  const remain = before.remainingCountText || '未知';
-  const remainAfter = after.remainingCountText || '未知';
-  const remainLine =
-    remain === remainAfter ? `今日匹配剩余：${remain}` : `今日匹配剩余：${remain} -> ${remainAfter}`;
-  return [
-    '已进入深度搜索并触发“立即匹配”。',
-    `职位：${before.selectedJob || '未知职位'}`,
-    `核心要求(${before.coreRequirements.length})：${core}`,
-    `加分项(${before.bonusRequirements.length})：${bonus}`,
-    remainLine,
     `来源页面：${BOSS_CHAT_AI_FORM_URL}`,
   ].join('\n');
 }
@@ -1258,29 +1189,24 @@ export async function runBossSearch(opts: { jobKeyword?: string } = {}): Promise
       }
       await ensureInDeepSearchPage(page);
 
-      if (!jobKeyword) {
-        const geeks = await readDeepSearchGeekList(page);
-        return renderGeekListSection('深度搜索当前匹配结果（未触发立即匹配）', geeks);
+      if (jobKeyword) {
+        await selectAiFormJob(page, jobKeyword);
+        await ensureInDeepSearchPage(page);
+        await sleepRandom(600, 1200);
       }
 
-      await selectAiFormJob(page, jobKeyword);
-      await ensureInDeepSearchPage(page);
-      const before = await readSearchFormSnapshot(page);
-      await clickMatchNow(page);
-      await waitForAiMatchSettled(page);
-      await ensureInDeepSearchPage(page);
-      const after = await readSearchFormSnapshot(page);
-      await sleepRandom(600, 1200);
       const geeks = await readDeepSearchGeekList(page);
-      const summary = renderMatchSummaryText(before, after);
-      return [summary, '', renderGeekListSection('匹配结果列表', geeks)].join('\n');
+      const title = jobKeyword
+        ? `深度搜索当前列表（岗位：${jobKeyword}，未触发「立即匹配」）`
+        : '深度搜索当前匹配结果（未触发「立即匹配」）';
+      return renderGeekListSection(title, geeks);
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     if (e instanceof Error && e.message.includes('浏览器会话尚未初始化')) {
-      throw new Error(createWaitManualLoginRequiredText('执行深度搜索'));
+      throw new Error(createWaitManualLoginRequiredText('读取深度搜索列表'));
     }
     console.error(`[boss-cli] boss_search error: ${message}`);
-    throw new Error(`执行深度搜索失败：${message}`);
+    throw new Error(`读取深度搜索列表失败：${message}`);
   }
 }
