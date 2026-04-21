@@ -55,6 +55,9 @@ export const ONLINE_RESUME_IFRAME_APPEAR_MS = { min: 600, max: 1600 } as const;
  */
 export const ONLINE_RESUME_IFRAME_WAIT_MAX_MS = 12_000;
 
+/** 打招呼点击后主文档付费弹层轮询上限（毫秒）；命中则提前结束，未命中时最多增加约此时长。 */
+export const GREET_PAYWALL_WAIT_MAX_MS = 2500;
+
 /** iframe 出现后等待简历区域渲染 */
 export const ONLINE_RESUME_IFRAME_SETTLE_MS = { min: 1800, max: 4200 } as const;
 

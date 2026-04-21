@@ -1,5 +1,5 @@
 import type { Page } from 'puppeteer-core';
-import { ONLINE_RESUME_IFRAME_WAIT_MAX_MS } from '../browser/human_delay.js';
+import { GREET_PAYWALL_WAIT_MAX_MS, ONLINE_RESUME_IFRAME_WAIT_MAX_MS } from '../browser/human_delay.js';
 import { sleepRandom } from '../browser/timing.js';
 import { frameHasVisibleCResumeIframe } from './c_resume_capture.js';
 
@@ -58,6 +58,25 @@ export async function waitForCResumeIframeOrPaywall(
 }
 
 /**
+ * 打招呼等操作后，轮询主文档是否出现付费弹层（与 {@link describeBossPaywallPopupIfPresent} 判定一致）。
+ * 命中则返回 true；超时未出现则返回 false。
+ */
+export async function waitForBossPaywallPopup(
+  page: Page,
+  timeoutMs: number = GREET_PAYWALL_WAIT_MAX_MS,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const paywall = (await page.evaluate(HAS_PAYWALL_SCRIPT)) as boolean;
+    if (paywall) {
+      return true;
+    }
+    await sleepRandom(160, 240);
+  }
+  return false;
+}
+
+/**
  * 若当前存在 VIP/付费类弹层（判定规则与 {@link describeBossPaywallPopupIfPresent} 一致），
  * 则点击关闭按钮以恢复页面可操作状态。返回是否执行了关闭。
  */
@@ -100,11 +119,15 @@ export async function closeBossPaywallPopupIfPresent(page: Page): Promise<boolea
 }
 
 /**
- * 检测 Boss 页面上是否出现 VIP/付费购买类弹层（如点击「在线简历」或推荐预览后拦截权益时）。
+ * 检测 Boss 页面上是否出现 VIP/付费购买类弹层（如点击「在线简历」、推荐预览或打招呼后拦截权益时）。
  * 命中则返回简短中文说明，供与「未出现 c-resume iframe」类错误拼接。
+ * @param purpose `greet` 时将「查看在线简历」类措辞改为适合打招呼的说明。
  */
-export async function describeBossPaywallPopupIfPresent(page: Page): Promise<string | null> {
-  return (await page.evaluate(`(() => {
+export async function describeBossPaywallPopupIfPresent(
+  page: Page,
+  purpose: 'resume' | 'greet' = 'resume',
+): Promise<string | null> {
+  const msg = (await page.evaluate(`(() => {
     const roots = Array.from(
       document.querySelectorAll(".boss-popup__wrapper, .boss-dialog__wrapper"),
     );
@@ -138,4 +161,8 @@ export async function describeBossPaywallPopupIfPresent(page: Page): Promise<str
     }
     return null;
   })()`)) as string | null;
+  if (!msg || purpose === 'resume') {
+    return msg;
+  }
+  return msg.replace(/后才能查看在线简历/g, '后才能完成打招呼');
 }
