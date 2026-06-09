@@ -1,8 +1,7 @@
 import { access } from 'node:fs/promises';
-import type { Page } from 'puppeteer-core';
+import type { Frame, Page } from 'puppeteer-core';
 import { ONLINE_RESUME_IFRAME_WAIT_MAX_MS, OPEN_CHAT_SCROLL_GAP_MS, sleepRandom } from '../browser/index.js';
 import { isBossChatIndexUrl, probeLoggedInFromPage } from '../common/auth.js';
-import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 import {
   closeBossPaywallPopupIfPresent,
   describeBossPaywallPopupIfPresent,
@@ -13,14 +12,6 @@ import {
   findVisibleCResumeIframeHandle,
   waitForVisibleCResumeIframeReady,
 } from '../common/c_resume_capture.js';
-import {
-  ensureInDeepSearchPage,
-  isBossChatAiFormUrl,
-  openDeepSearchResumePreviewByCandidate,
-  readAiFormSelectedJobLabel,
-  readDeepSearchGeekList,
-  selectAiFormJob,
-} from '../toolset/deep-search.js';
 import { ensureChatIndexAllFilter, readCandidateListItems } from '../toolset/list.js';
 import {
   ensureInRecommendPage,
@@ -74,6 +65,15 @@ type FetchResult = {
 const AUTH_OR_RISK_PATTERN =
   /(?:\blogin\b|forbidden|captcha|risk|\u767b\u5f55|\u626b\u7801|\u9a8c\u8bc1\u7801|\u98ce\u63a7|\u8d26\u53f7)/i;
 
+const BOSS_CHAT_SEARCH_URL = 'https://www.zhipin.com/web/chat/search';
+
+function isResumeDataApiUrl(url: string): boolean {
+  return (
+    url.includes('/wapi/zpjob/view/geek/info/v2') ||
+    url.includes('/wapi/zpitem/web/boss/search/geek/info')
+  );
+}
+
 class ResumeSyncAbortError extends Error {
   constructor(message: string) {
     super(message);
@@ -116,10 +116,124 @@ async function assertLoggedIn(page: Page): Promise<void> {
 }
 
 async function ensureDeepSearchRoute(page: Page): Promise<void> {
-  if (!isBossChatAiFormUrl(page.url())) {
-    await clickBossSidebarMenuToPath(page, '深度搜索', '/web/chat/aiform');
+  if (!isBossChatSearchUrl(page.url())) {
+    await page.goto(BOSS_CHAT_SEARCH_URL, {
+      waitUntil: 'load',
+      timeout: 60_000,
+    });
   }
-  await ensureInDeepSearchPage(page);
+  await ensureSearchFrameReady(page);
+}
+
+function isBossChatSearchUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes('zhipin.com')) {
+      return false;
+    }
+    const p = u.pathname.replace(/\/+$/, '') || '/';
+    return p === '/web/chat/search';
+  } catch {
+    return false;
+  }
+}
+
+function findSearchFrame(page: Page): Frame | null {
+  return page.frames().find((frame) => frame.url().includes('/web/frame/search/')) ?? null;
+}
+
+async function getSearchFrame(page: Page): Promise<Frame> {
+  await page.waitForFunction(
+    `(() => !!document.querySelector('iframe[name="searchFrame"], iframe[src*="/web/frame/search/"]'))()`,
+    { timeout: 20_000 },
+  );
+  const frame = findSearchFrame(page);
+  if (!frame) {
+    throw new Error('搜索页 iframe（searchFrame）已出现，但无法连接其页面上下文。');
+  }
+  return frame;
+}
+
+async function ensureSearchFrameReady(page: Page): Promise<Frame> {
+  const frame = await getSearchFrame(page);
+  await frame.waitForFunction(
+    `(() => document.querySelectorAll('a .card-container, a .search-geek-info').length > 0)()`,
+    { timeout: 20_000 },
+  );
+  return frame;
+}
+
+async function readSearchSelectedJobLabel(page: Page): Promise<string> {
+  return (await page.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
+    const menu = norm(document.querySelector(".menu-geeksearch .menu-item-content")?.textContent);
+    const label = menu.replace(/^搜索\\s*/, "").trim();
+    return label || "搜索";
+  })()`)) as string;
+}
+
+async function readSearchCandidateList(frame: Frame): Promise<SourceCandidate[]> {
+  return (await frame.evaluate(`(() => {
+    const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
+    const anchors = Array.from(document.querySelectorAll("a"))
+      .filter((anchor) => anchor.querySelector(".card-container, .search-geek-info"));
+    return anchors.map((anchor, index) => {
+      const rawName = norm(
+        anchor.querySelector(".geek-name, .name, .base-info-name, .name-text")?.textContent ||
+        anchor.querySelector(".search-geek-info")?.textContent ||
+        ""
+      );
+      const name = rawName.replace(/\\s*(刚刚活跃|今日活跃|本周活跃|月内活跃).*$/, "").trim() || rawName || ("搜索候选人" + (index + 1));
+      const meta = norm(anchor.querySelector(".geek-info-detail, .card-container")?.textContent || "");
+      const buttonText = norm(anchor.querySelector("button, .btn")?.textContent || "");
+      return {
+        source: "deep-search",
+        name,
+        jobLabel: "搜索",
+        sourceMeta: {
+          listIndex: index,
+          meta,
+          buttonText,
+          ka: anchor.getAttribute("ka") || "",
+        },
+      };
+    });
+  })()`)) as SourceCandidate[];
+}
+
+async function openSearchResumePreviewByCandidate(
+  frame: Frame,
+  candidate: { name: string; listIndex?: number },
+): Promise<boolean> {
+  const nameLiteral = JSON.stringify(candidate.name.trim());
+  const indexLiteral =
+    typeof candidate.listIndex === 'number' && candidate.listIndex >= 0
+      ? String(candidate.listIndex)
+      : 'null';
+  return (await frame.evaluate(`(() => {
+    const targetName = ${nameLiteral};
+    const targetIndex = ${indexLiteral};
+    const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
+    const cards = Array.from(document.querySelectorAll("a"))
+      .filter((anchor) => anchor.querySelector(".card-container, .search-geek-info"));
+    const target =
+      (targetIndex !== null ? cards[targetIndex] : null) ||
+      cards.find((anchor) => {
+        const text = norm(
+          anchor.querySelector(".geek-name, .name, .base-info-name, .name-text")?.textContent ||
+          anchor.querySelector(".search-geek-info")?.textContent ||
+          ""
+        );
+        return text === targetName || text.includes(targetName);
+      });
+    if (!(target instanceof HTMLElement)) return false;
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+    target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }));
+    target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+    target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+    target.click();
+    return true;
+  })()`)) as boolean;
 }
 
 async function openChatOnlineResume(page: Page): Promise<boolean> {
@@ -295,7 +409,7 @@ async function readOpenResumeView(page: Page): Promise<ResumeViewSnapshot> {
         .catch(() => [])) as string[];
       resourceUrls.push(...urls);
     }
-    const apiUrl = resourceUrls.find((url) => url.includes('/wapi/zpjob/view/geek/info/v2'));
+    const apiUrl = resourceUrls.find((url) => isResumeDataApiUrl(url));
     return {
       iframeSrc,
       resumeUrl,
@@ -317,7 +431,7 @@ async function waitForResumeApiUrl(page: Page, timeoutMs = 10_000): Promise<stri
       const urls = (await frame
         .evaluate(`(() => performance.getEntriesByType("resource").map((entry) => entry.name))()`)
         .catch(() => [])) as string[];
-      const found = urls.find((url) => url.includes('/wapi/zpjob/view/geek/info/v2'));
+      const found = urls.find((url) => isResumeDataApiUrl(url));
       if (found) {
         return found;
       }
@@ -425,20 +539,21 @@ export async function collectSourceCandidates(
 
   if (source === 'deep-search') {
     await ensureDeepSearchRoute(page);
-    const selectedJob = options.jobKeyword
-      ? await selectAiFormJob(page, options.jobKeyword)
-      : await readAiFormSelectedJobLabel(page);
-    const candidates = await readDeepSearchGeekList(page);
+    if (options.jobKeyword) {
+      throw new Error('当前 BOSS 搜索页（/web/chat/search）暂不支持通过 --job 切换岗位，请先在页面选择岗位后再运行。');
+    }
+    const frame = await ensureSearchFrameReady(page);
+    const selectedJob = await readSearchSelectedJobLabel(page);
+    const candidates = await readSearchCandidateList(frame);
     return candidates.slice(0, options.limit).map((candidate) => ({
       source,
       name: candidate.name,
       jobLabel: selectedJob || 'unknown-job',
       sourceMeta: buildSourceMeta({
-        listIndex: candidate.listIndex,
-        meta: candidate.meta,
-        work: candidate.work,
-        edu: candidate.edu,
-        reason: candidate.reason,
+        listIndex: pickNumber(candidate.sourceMeta, 'listIndex') ?? null,
+        meta: candidate.sourceMeta.meta ?? null,
+        buttonText: candidate.sourceMeta.buttonText ?? null,
+        ka: candidate.sourceMeta.ka ?? null,
       }),
     }));
   }
@@ -471,7 +586,8 @@ async function openSourceCandidateResume(page: Page, candidate: SourceCandidate)
 
   if (candidate.source === 'deep-search') {
     await ensureDeepSearchRoute(page);
-    return openDeepSearchResumePreviewByCandidate(page, {
+    const frame = await ensureSearchFrameReady(page);
+    return openSearchResumePreviewByCandidate(frame, {
       name: candidate.name,
       listIndex: pickNumber(candidate.sourceMeta, 'listIndex'),
     });
