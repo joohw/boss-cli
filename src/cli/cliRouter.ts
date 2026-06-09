@@ -16,11 +16,13 @@ import {
   implRecommend,
   implPreview,
   implRecommendGreet,
+  implResumes,
   implSetBaiduCredentials,
   implBossSearch,
   implSendMessage,
   type ChatPageAction,
 } from '../toolset/index.js';
+import { normalizeResumeSyncCliOptions } from '../resumes/options.js';
 import { printBossInteractiveBanner } from './banner.js';
 import { printVersionInfo } from './version.js';
 
@@ -257,6 +259,12 @@ export async function executeCommand(argv: string[]): Promise<string> {
   const cmd = normalizeSubcommand(argv[0]);
   const tail = argv.slice(1);
   configureHeadlessForCommand(cmd);
+
+  if (cmd === 'resumes') {
+    const parsed = parseOpts(tail);
+    const options = normalizeResumeSyncCliOptions(parsed);
+    return implResumes(options);
+  }
 
   if (cmd === '_baidu-keys') {
     const { rest, opts } = parseOpts(tail);

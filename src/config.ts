@@ -36,6 +36,9 @@ export const RESUME_SCREENSHOTS_DIR = join(CACHE_DIR, 'resume-screenshots');
 /** 在线简历截图经 OCR 后的纯文本保存目录（与截图同名 `.txt`） */
 export const RESUME_OCR_DIR = join(CACHE_DIR, 'ocr');
 
+/** 批量同步在线简历的长期存储根目录 */
+export const RESUME_SYNC_ROOT = join(APP_HOME, 'resumes');
+
 let appDataLayoutReady = false;
 
 /** 确保 `~/.boss-cli/.cache` 目录存在（幂等） */

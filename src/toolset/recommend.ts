@@ -5,6 +5,7 @@ import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 const BOSS_CHAT_RECOMMEND_URL = 'https://www.zhipin.com/web/chat/recommend';
 
 export type RecommendCandidate = {
+  listIndex: number;
   geekId: string;
   name: string;
   salary: string;
@@ -214,7 +215,7 @@ export async function readRecommendList(frame: Frame): Promise<RecommendCandidat
     const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
     const cardSel = ${JSON.stringify(RECOMMEND_CARD_ROOT_SELECTOR)};
     const cards = Array.from(document.querySelectorAll(cardSel));
-    return cards.map((item) => {
+    return cards.map((item, index) => {
       const inner = item.querySelector(".card-inner") || item;
       const wrap = item.matches(".candidate-card-wrap")
         ? item
@@ -262,6 +263,7 @@ export async function readRecommendList(frame: Frame): Promise<RecommendCandidat
         });
       })();
       return {
+        listIndex: index,
         geekId,
         name,
         salary,
@@ -419,15 +421,36 @@ export function markGreetProduced(
  * 父页随后出现 `c-resume` iframe（如 `source=recommend`）。旧版仅有「在线简历」链接时仍尝试点击链接。
  */
 export async function openRecommendResumePreview(frame: Frame, target: string): Promise<boolean> {
-  const raw = target.trim();
+  return openRecommendResumePreviewByCandidate(frame, { name: target.trim() });
+}
+
+export async function openRecommendResumePreviewByCandidate(
+  frame: Frame,
+  candidate: { name: string; geekId?: string; listIndex?: number },
+): Promise<boolean> {
+  const raw = candidate.name.trim();
   const targetLiteral = JSON.stringify(raw);
+  const geekIdLiteral = JSON.stringify(candidate.geekId?.trim() || '');
+  const listIndexLiteral =
+    typeof candidate.listIndex === 'number' && candidate.listIndex >= 0
+      ? String(candidate.listIndex)
+      : 'null';
   return (await frame.evaluate(`(() => {
     const raw = ${targetLiteral};
+    const targetGeekId = ${geekIdLiteral};
+    const targetIndex = ${listIndexLiteral};
     const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
     const cardSel = ${JSON.stringify(RECOMMEND_CARD_ROOT_SELECTOR)};
     const cards = Array.from(document.querySelectorAll(cardSel));
     if (cards.length === 0) return false;
-    const targetCard = cards.find((item) => {
+    const targetCard = cards.find((item, index) => {
+      const inner = item.querySelector(".card-inner") || item;
+      const geekId =
+        inner?.getAttribute("data-geekid") ??
+        inner?.getAttribute("data-geek") ??
+        "";
+      if (targetGeekId && geekId === targetGeekId) return true;
+      if (targetIndex !== null && index === targetIndex) return true;
       const name =
         norm(item.querySelector(".name-wrap .name")?.textContent) ||
         norm(item.querySelector(".name")?.textContent);

@@ -4,7 +4,8 @@ import { isBossChatIndexUrl } from '../common/auth.js';
 import { withBossSessionPage } from '../common/boss_session_page.js';
 import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 
-type CandidateItem = {
+export type CandidateItem = {
+  listIndex: number;
   name: string;
   job: string;
   time: string;
@@ -121,24 +122,7 @@ export async function runGetCandidateList(
     return await withBossSessionPage(async (page) => {
       await ensureChatIndexAllFilter(page);
 
-      const items = (await page.evaluate(
-        `(() => {
-          const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
-          return Array.from(document.querySelectorAll(".geek-item")).map((el) => {
-            const name = norm(el.querySelector(".geek-name")?.textContent);
-            const job = norm(el.querySelector(".source-job")?.textContent);
-            const time = norm(el.querySelector(".time")?.textContent);
-            const message = norm(el.querySelector(".push-text")?.textContent);
-            const badge = el.querySelector(".badge-count");
-            let unreadCount = 0;
-            if (badge) {
-              const digits = norm(badge.textContent).replace(/\\D/g, "");
-              if (digits) unreadCount = parseInt(digits, 10) || 0;
-            }
-            return { name, job, time, message, unreadCount };
-          });
-        })()`,
-      )) as CandidateItem[];
+      const items = await readCandidateListItems(page);
 
       const candidates = items.filter((it) => it.name) as CandidateItem[];
       const withUnread = candidates.filter((it) => it.unreadCount > 0).length;
@@ -172,4 +156,25 @@ export async function runGetCandidateList(
     }
     throw new Error(`获取候选人列表失败：${String(e)}`);
   }
+}
+
+export async function readCandidateListItems(page: Page): Promise<CandidateItem[]> {
+  return (await page.evaluate(
+    `(() => {
+      const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
+      return Array.from(document.querySelectorAll(".geek-item")).map((el, index) => {
+        const name = norm(el.querySelector(".geek-name")?.textContent);
+        const job = norm(el.querySelector(".source-job")?.textContent);
+        const time = norm(el.querySelector(".time")?.textContent);
+        const message = norm(el.querySelector(".push-text")?.textContent);
+        const badge = el.querySelector(".badge-count");
+        let unreadCount = 0;
+        if (badge) {
+          const digits = norm(badge.textContent).replace(/\\D/g, "");
+          if (digits) unreadCount = parseInt(digits, 10) || 0;
+        }
+        return { listIndex: index, name, job, time, message, unreadCount };
+      });
+    })()`,
+  )) as CandidateItem[];
 }

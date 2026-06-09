@@ -13,6 +13,7 @@ import { runBossSearch, runBossSearchSet } from './deep-search.js';
 import { runRecommend } from './recommend.js';
 import { runPreview } from './preview.js';
 import { runRecommendGreet } from './greet.js';
+import { runResumes } from './resumes.js';
 export type { ChatPageAction };
 export type { DeepSearchGeekItem } from './deep-search.js';
 
@@ -94,6 +95,10 @@ export async function implRecommendGreet(opts: {
   jobKeyword?: string;
 }): Promise<string> {
   return runRecommendGreet(opts);
+}
+
+export async function implResumes(opts: import('../resumes/options.js').ResumeSyncCliOptions): Promise<string> {
+  return runResumes(opts);
 }
 
 export { implSetBaiduCredentials } from './baidu_credentials.js';

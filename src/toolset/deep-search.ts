@@ -14,6 +14,7 @@ type SearchFormSnapshot = {
 };
 
 export type DeepSearchGeekItem = {
+  listIndex: number;
   name: string;
   meta: string;
   work: string;
@@ -948,10 +949,22 @@ export async function readAiFormSelectedJobLabel(page: Page): Promise<string> {
  * 在深度搜索（aiform）主文档中按姓名打开在线简历预览（与 {@link clickGreetDeepSearch} 同一卡片集合，排除「继续沟通」）。
  */
 export async function openDeepSearchResumePreview(page: Page, target: string): Promise<boolean> {
-  const raw = target.trim();
+  return openDeepSearchResumePreviewByCandidate(page, { name: target.trim() });
+}
+
+export async function openDeepSearchResumePreviewByCandidate(
+  page: Page,
+  candidate: { name: string; listIndex?: number },
+): Promise<boolean> {
+  const raw = candidate.name.trim();
+  const targetIndexLiteral =
+    typeof candidate.listIndex === 'number' && candidate.listIndex >= 0
+      ? String(candidate.listIndex)
+      : 'null';
   const targetLiteral = JSON.stringify(raw);
   return (await page.evaluate(`(() => {
     const raw = ${targetLiteral};
+    const targetIndex = ${targetIndexLiteral};
     const norm = (v) => (v ?? "").replace(/\\s+/g, " ").trim();
     const allCards = Array.from(
       document.querySelectorAll(".geeks-box .geek-card-item, .geek-card-list .geek-card-item"),
@@ -963,7 +976,8 @@ export async function openDeepSearchResumePreview(page: Page, target: string): P
     });
     if (cards.length === 0) return false;
     const targetCard =
-      cards.find((item) => {
+      cards.find((item, index) => {
+        if (targetIndex !== null && index === targetIndex) return true;
         const name = norm(item.querySelector(".geek-name")?.textContent);
         return name === raw || name.includes(raw);
       }) ?? null;
@@ -1015,7 +1029,7 @@ export async function readDeepSearchGeekList(page: Page): Promise<DeepSearchGeek
       document.querySelectorAll(".geeks-box .geek-card-item, .geek-card-list .geek-card-item"),
     );
     return items
-      .map((item) => {
+      .map((item, index) => {
         const chatLabel = norm(item.querySelector(".geek-chat")?.textContent);
         if (chatLabel.includes("继续沟通")) {
           return null;
@@ -1032,7 +1046,7 @@ export async function readDeepSearchGeekList(page: Page): Promise<DeepSearchGeek
         if (recEl) {
           reason = norm(recEl.textContent).replace(/^推荐理由\\s*/, "").trim();
         }
-        return { name, meta, work, edu, reason };
+        return { listIndex: index, name, meta, work, edu, reason };
       })
       .filter((x) => x !== null);
   })()`)) as DeepSearchGeekItem[];
