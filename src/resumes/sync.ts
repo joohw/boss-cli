@@ -132,6 +132,9 @@ async function openChatOnlineResume(page: Page): Promise<boolean> {
       return false;
     }
     anchor.scrollIntoView({ block: "center", inline: "nearest" });
+    anchor.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }));
+    anchor.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+    anchor.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
     anchor.click();
     return true;
   })()`)) as boolean;
