@@ -4,6 +4,7 @@ export type ResumeSyncCliOptions = {
   source: ResumeSource;
   limit: number;
   unreadOnly: boolean;
+  jsonOutput: boolean;
   jobKeyword?: string;
   rootDir?: string;
 };
@@ -30,11 +31,11 @@ function parseResumeSource(raw: string | undefined): ResumeSource {
   if (value === 'chat' || value === 'recommend' || value === 'deep-search') {
     return value;
   }
-  throw new Error('❌ 用法: resumes --from <chat|recommend|deep-search> [--job <岗位关键字>] [--limit <数量>] [--unread] [--root <目录>]');
+  throw new Error('❌ 用法: resumes --from <chat|recommend|deep-search> [--job <岗位关键字>] [--limit <数量>] [--unread] [--root <目录>] [--json]');
 }
 
 export function normalizeResumeSyncCliOptions(parsed: ParsedCliTail): ResumeSyncCliOptions {
-  const unknownShortFlags = Array.from(parsed.flags).filter((flag) => flag !== 'unread');
+  const unknownShortFlags = Array.from(parsed.flags).filter((flag) => flag !== 'unread' && flag !== 'json');
   if (unknownShortFlags.length > 0) {
     throw new Error(`❌ resumes 不支持 flag: -${unknownShortFlags.join(', -')}`);
   }
@@ -42,12 +43,13 @@ export function normalizeResumeSyncCliOptions(parsed: ParsedCliTail): ResumeSync
   const source = parseResumeSource(parsed.opts.from);
   const limit = readPositiveInt(parsed.opts.limit, 20);
   const unreadOnly = parsed.flags.has('unread');
+  const jsonOutput = parsed.flags.has('json');
   const jobKeyword = parsed.opts.job?.trim();
   const rootDir = parsed.opts.root?.trim();
   const positional = parsed.rest.map((item) => item.trim()).filter(Boolean);
 
   if (positional.length > 0) {
-    throw new Error('❌ resumes 不接受位置参数，请使用 --from / --job / --limit / --unread / --root。');
+    throw new Error('❌ resumes 不接受位置参数，请使用 --from / --job / --limit / --unread / --root / --json。');
   }
   if (source === 'chat' && jobKeyword) {
     throw new Error('❌ resumes --from chat 不支持 --job。');
@@ -66,6 +68,7 @@ export function normalizeResumeSyncCliOptions(parsed: ParsedCliTail): ResumeSync
     source,
     limit,
     unreadOnly,
+    jsonOutput,
     jobKeyword: jobKeyword || undefined,
     rootDir: rootDir || undefined,
   };

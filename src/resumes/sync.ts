@@ -63,6 +63,31 @@ type FetchResult = {
   error?: string;
 };
 
+type ResumeSyncCounts = Record<'downloaded' | 'skipped_existing' | 'missing_identifiers' | 'download_failed', number>;
+
+type ResumeSyncResultItem = {
+  source: ResumeSource;
+  candidateName: string;
+  jobName: string;
+  status: ResumeSyncResult['status'];
+  message: string;
+  candidateId?: string;
+  jobId?: string;
+  securityId?: string;
+  visibleGeekId?: string;
+  artifacts?: ResumeSyncResult['artifacts'];
+};
+
+type ResumeSyncStructuredOutput = {
+  ok: boolean;
+  source: ResumeSource;
+  limit: number;
+  root: string;
+  candidateCount: number;
+  counts: ResumeSyncCounts;
+  results: ResumeSyncResultItem[];
+};
+
 const AUTH_OR_RISK_PATTERN =
   /(?:\blogin\b|forbidden|captcha|risk|\u767b\u5f55|\u626b\u7801|\u9a8c\u8bc1\u7801|\u98ce\u63a7|\u8d26\u53f7)/i;
 
@@ -770,8 +795,26 @@ export async function downloadResumeData(
   };
 }
 
-function formatResultLine(candidateName: string, result: ResumeSyncResult): string {
+function formatResultLine(candidateName: string, result: Pick<ResumeSyncResult, 'status' | 'message'>): string {
   return `- ${candidateName}: ${result.status} - ${result.message}`;
+}
+
+function renderSyncText(output: ResumeSyncStructuredOutput): string {
+  const summary = [
+    `boss resumes 完成：source=${output.source}`,
+    `候选人数量：${output.candidateCount}`,
+    `输出目录：${output.root}`,
+    `结果汇总：downloaded=${output.counts.downloaded}, skipped_existing=${output.counts.skipped_existing}, missing_identifiers=${output.counts.missing_identifiers}, download_failed=${output.counts.download_failed}`,
+  ];
+  if (output.results.length === 0) {
+    summary.push('明细：暂无候选人。');
+    return summary.join('\n');
+  }
+  return [
+    ...summary,
+    '',
+    ...output.results.map((item) => formatResultLine(item.candidateName, item)),
+  ].join('\n');
 }
 
 export async function syncResumesOnPage(
@@ -781,8 +824,8 @@ export async function syncResumesOnPage(
   await assertLoggedIn(page);
   const candidates = await collectSourceCandidates(page, options.source, options);
   const rootDir = getResumeSyncRoot(options.rootDir);
-  const results: string[] = [];
-  const counts: Record<'downloaded' | 'skipped_existing' | 'missing_identifiers' | 'download_failed', number> = {
+  const results: ResumeSyncResultItem[] = [];
+  const counts: ResumeSyncCounts = {
     downloaded: 0,
     skipped_existing: 0,
     missing_identifiers: 0,
@@ -799,7 +842,14 @@ export async function syncResumesOnPage(
           message: '未拿到 encryptGeekId / encryptJobId / securityId。',
         };
         counts[result.status] += 1;
-        results.push(formatResultLine(sourceCandidate.name, result));
+        results.push({
+          source: sourceCandidate.source,
+          candidateName: sourceCandidate.name,
+          jobName: sourceCandidate.jobLabel || 'unknown-job',
+          status: result.status,
+          message: result.message,
+          visibleGeekId: sourceCandidate.visibleGeekId,
+        });
         await upsertCandidateFailureEntry({
           rootDir: options.rootDir,
           candidateName: sourceCandidate.name,
@@ -823,7 +873,18 @@ export async function syncResumesOnPage(
           artifacts: existing?.artifacts,
         };
         counts[result.status] += 1;
-        results.push(formatResultLine(sourceCandidate.name, result));
+        results.push({
+          source: sourceCandidate.source,
+          candidateName: sourceCandidate.name,
+          jobName: resolvedCandidate.jobName,
+          status: result.status,
+          message: result.message,
+          candidateId: resolvedCandidate.encryptGeekId,
+          jobId: resolvedCandidate.encryptJobId,
+          securityId: resolvedCandidate.securityId,
+          visibleGeekId: resolvedCandidate.visibleGeekId,
+          artifacts: result.artifacts,
+        });
         continue;
       }
 
@@ -841,7 +902,18 @@ export async function syncResumesOnPage(
         artifacts,
       };
       counts[result.status] += 1;
-      results.push(formatResultLine(sourceCandidate.name, result));
+      results.push({
+        source: sourceCandidate.source,
+        candidateName: sourceCandidate.name,
+        jobName: resolvedCandidate.jobName,
+        status: result.status,
+        message: result.message,
+        candidateId: resolvedCandidate.encryptGeekId,
+        jobId: resolvedCandidate.encryptJobId,
+        securityId: resolvedCandidate.securityId,
+        visibleGeekId: resolvedCandidate.visibleGeekId,
+        artifacts,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const failureCandidate = resolvedCandidate;
@@ -867,7 +939,17 @@ export async function syncResumesOnPage(
         throw error;
       }
       counts.download_failed += 1;
-      results.push(formatResultLine(sourceCandidate.name, { status, message }));
+      results.push({
+        source: sourceCandidate.source,
+        candidateName: sourceCandidate.name,
+        jobName: failureCandidate?.jobName || sourceCandidate.jobLabel || 'unknown-job',
+        status,
+        message,
+        candidateId: failureCandidate?.encryptGeekId,
+        jobId: failureCandidate?.encryptJobId,
+        securityId: failureCandidate?.securityId,
+        visibleGeekId: failureCandidate?.visibleGeekId || sourceCandidate.visibleGeekId,
+      });
     } finally {
       await closeCResumePanel(page).catch(() => {});
       await closeBossPaywallPopupIfPresent(page).catch(() => {});
@@ -875,15 +957,14 @@ export async function syncResumesOnPage(
     }
   }
 
-  const summary = [
-    `boss resumes 完成：source=${options.source}`,
-    `候选人数量：${candidates.length}`,
-    `输出目录：${rootDir}`,
-    `结果汇总：downloaded=${counts.downloaded}, skipped_existing=${counts.skipped_existing}, missing_identifiers=${counts.missing_identifiers}, download_failed=${counts.download_failed}`,
-  ];
-  if (results.length === 0) {
-    summary.push('明细：暂无候选人。');
-    return summary.join('\n');
-  }
-  return [...summary, '', ...results].join('\n');
+  const output: ResumeSyncStructuredOutput = {
+    ok: counts.download_failed === 0 && counts.missing_identifiers === 0,
+    source: options.source,
+    limit: options.limit,
+    root: rootDir,
+    candidateCount: candidates.length,
+    counts,
+    results,
+  };
+  return options.jsonOutput ? JSON.stringify(output, null, 2) : renderSyncText(output);
 }

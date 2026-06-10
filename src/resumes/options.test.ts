@@ -13,9 +13,21 @@ test('normalizeResumeSyncCliOptions parses recommend defaults', () => {
     source: 'recommend',
     limit: 20,
     unreadOnly: false,
+    jsonOutput: false,
     jobKeyword: undefined,
     rootDir: undefined,
   });
+});
+
+test('normalizeResumeSyncCliOptions parses json flag', () => {
+  const options = normalizeResumeSyncCliOptions({
+    rest: [],
+    flags: new Set<string>(['json']),
+    opts: { from: 'chat', limit: '3' },
+  });
+
+  assert.equal(options.jsonOutput, true);
+  assert.equal(options.limit, 3);
 });
 
 test('normalizeResumeSyncCliOptions rejects invalid source', () => {
