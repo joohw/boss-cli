@@ -157,8 +157,12 @@ function printHelp(): void {
   boss recommend [岗位关键字]
       进入推荐页并读取推荐列表；带岗位关键字时先在岗位下拉中模糊匹配并切换
   boss preview <姓名> [--job <岗位关键字>]
-      在线简历预览：须当前已在「推荐」(/web/chat/recommend) 或「深度搜索」(/web/chat/aiform) 且列表已加载；不会自动跳转
+      在线简历预览：须当前已在「推荐」(/web/chat/recommend) 或候选人搜索页且列表已加载；不会自动跳转
       注意：平台对在线简历每日可查看次数有限，请按需使用、谨慎查看
+  boss resumes --from <chat|recommend|deep-search> [--job <岗位关键字>] [--limit <数量>] [--unread] [--root <目录>]
+      增量同步在线简历到 ~/.boss-cli/resumes；来源支持聊天、推荐、搜索/深搜
+      --job 仅用于 recommend / deep-search；--unread 仅用于 chat；--limit 默认 20
+      已存在 resume.json 与 resume.md 的候选人会跳过；单个候选人失败会记录并继续
   boss greet <姓名> [--job <岗位关键字>]
       在「推荐」页（或当前已在 Boss 聊天侧栏打开的、含候选人列表的页面）对列表中的候选人点击“打招呼”
       可选 --job 先在岗位下拉中模糊匹配并切换（与 recommend / preview 共用同一套选择逻辑）
