@@ -8,11 +8,17 @@ export const C_RESUME_IFRAME_SELECTOR =
 
 const CLOSE_C_RESUME_PANEL_SCRIPT = `(() => {
   const sel = ${JSON.stringify(C_RESUME_IFRAME_SELECTOR)};
-  const wraps = Array.from(document.querySelectorAll('.boss-popup__wrapper'));
+  const wraps = Array.from(document.querySelectorAll('.boss-popup__wrapper, .boss-dialog__wrapper, .dialog-wrap'));
   for (var wi = 0; wi < wraps.length; wi++) {
     var w = wraps[wi];
     if (w.querySelector(sel)) {
-      var c = w.querySelector('.boss-popup__close') || w.querySelector('.btn-quxiao');
+      var c =
+        w.querySelector('.boss-popup__close') ||
+        w.querySelector('.boss-dialog__close') ||
+        w.querySelector('.drawer-close') ||
+        w.querySelector('.icon-close') ||
+        w.querySelector('.close-btn') ||
+        w.querySelector('.btn-quxiao');
       if (c) {
         c.click();
         return true;

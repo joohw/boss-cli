@@ -1,8 +1,7 @@
 import type { Page } from 'puppeteer-core';
 import { LIST_MIN_BEFORE_EMPTY_OK_MS, LIST_POLL_MS, sleepRandom } from '../browser/index.js';
-import { isBossChatIndexUrl } from '../common/auth.js';
+import { BOSS_CHAT_INDEX_URL, isBossChatIndexUrl } from '../common/auth.js';
 import { withBossSessionPage } from '../common/boss_session_page.js';
-import { clickBossSidebarMenuToPath } from '../common/boss_sidebar_nav.js';
 
 export type CandidateItem = {
   listIndex: number;
@@ -83,11 +82,11 @@ async function waitForChatFilterAllSelected(page: Page): Promise<void> {
 export async function ensureChatIndexAllFilter(page: Page): Promise<void> {
   const currentUrl = page.url();
   if (!isBossChatIndexUrl(currentUrl)) {
-    await clickBossSidebarMenuToPath(page, '沟通', '/web/chat/index');
+    await page.goto(BOSS_CHAT_INDEX_URL, { waitUntil: 'load', timeout: 60_000 });
   }
 
   if (!isBossChatIndexUrl(page.url())) {
-    throw new Error('通过侧边栏“沟通”进入聊天列表页失败，请确认已登录并可访问 /web/chat/index。');
+    throw new Error('进入聊天列表页失败，请确认已登录并可访问 /web/chat/index。');
   }
 
   await page.waitForFunction(

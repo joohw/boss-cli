@@ -19,7 +19,7 @@ import {
   readRecommendList,
   selectRecommendJob,
 } from '../toolset/recommend.js';
-import { collectIdentifierHitsFromUrl, resolveIdentifiers } from './identifiers.js';
+import { collectIdentifierHits, collectIdentifierHitsFromUrl, resolveIdentifiers } from './identifiers.js';
 import { normalizeResumeApiPayload, normalizeResumeFrameSnapshot } from './normalize.js';
 import type { ResumeSyncCliOptions } from './options.js';
 import { BossResumeObserver } from './observer.js';
@@ -32,6 +32,7 @@ import {
 import type {
   CandidateIndexEntry,
   NormalizedResumeData,
+  ResumeIdentifiers,
   ResolvedResumeCandidate,
   ResumeSource,
   ResumeSyncResult,
@@ -139,15 +140,27 @@ function isBossChatSearchUrl(url: string): boolean {
 }
 
 function findSearchFrame(page: Page): Frame | null {
-  return page.frames().find((frame) => frame.url().includes('/web/frame/search/')) ?? null;
+  return (
+    page.frames().find((frame) => frame.name() === 'searchFrame') ??
+    page.frames().find((frame) => frame.url().includes('/web/frame/search/')) ??
+    null
+  );
 }
 
 async function getSearchFrame(page: Page): Promise<Frame> {
   await page.waitForFunction(
-    `(() => !!document.querySelector('iframe[name="searchFrame"], iframe[src*="/web/frame/search/"]'))()`,
+    `(() => {
+      const iframe = document.querySelector('iframe[name="searchFrame"], iframe[src*="/web/frame/search/"]');
+      return !!iframe;
+    })()`,
     { timeout: 20_000 },
   );
-  const frame = findSearchFrame(page);
+  const deadline = Date.now() + 20_000;
+  let frame = findSearchFrame(page);
+  while (!frame && Date.now() < deadline) {
+    await sleepRandom(160, 240);
+    frame = findSearchFrame(page);
+  }
   if (!frame) {
     throw new Error('搜索页 iframe（searchFrame）已出现，但无法连接其页面上下文。');
   }
@@ -237,21 +250,37 @@ async function openSearchResumePreviewByCandidate(
 }
 
 async function openChatOnlineResume(page: Page): Promise<boolean> {
-  return (await page.evaluate(`(() => {
-    const anchor = document.querySelector("a.resume-btn-online");
-    if (!(anchor instanceof HTMLElement)) return false;
-    if (anchor.classList.contains("disabled")) return false;
-    const style = window.getComputedStyle(anchor);
-    if (style.pointerEvents === "none" || style.display === "none" || style.visibility === "hidden") {
-      return false;
-    }
-    anchor.scrollIntoView({ block: "center", inline: "nearest" });
-    anchor.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }));
-    anchor.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-    anchor.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
-    anchor.click();
-    return true;
-  })()`)) as boolean;
+  const position = await page.waitForFunction(
+    `(() => {
+      const root = document.querySelector(".base-info-single-container");
+      if (!(root instanceof HTMLElement)) return null;
+      const anchor = root.querySelector("a.resume-btn-online");
+      if (!(anchor instanceof HTMLElement)) return null;
+      if (anchor.classList.contains("disabled")) return null;
+      const style = window.getComputedStyle(anchor);
+      if (style.pointerEvents === "none" || style.display === "none" || style.visibility === "hidden") {
+        return null;
+      }
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      anchor.scrollIntoView({ block: "center", inline: "nearest" });
+      const next = anchor.getBoundingClientRect();
+      return { x: next.left + next.width / 2, y: next.top + next.height / 2 };
+    })()`,
+    { timeout: 10_000 },
+  );
+  const point = (await position.jsonValue()) as { x?: number; y?: number } | null;
+  await position.dispose();
+  if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+    return false;
+  }
+  await sleepRandom(180, 320);
+  await page.mouse.move(point.x, point.y, { steps: 8 });
+  await sleepRandom(120, 220);
+  await page.mouse.down();
+  await sleepRandom(100, 180);
+  await page.mouse.up();
+  return true;
 }
 
 async function openChatConversationByCandidate(
@@ -358,20 +387,21 @@ async function openChatConversationByCandidate(
   );
   await page.waitForFunction(
     `(() => {
-      const list = document.querySelector(".chat-message-list");
-      if (!list) return false;
-      const items = list.querySelectorAll(".message-item");
-      if (!items || items.length === 0) return false;
-      return Array.from(items).some((item) => {
-        const txt =
-          item.querySelector(".item-friend .text span")?.textContent ??
-          item.querySelector(".item-myself .text span")?.textContent ??
-          item.querySelector(".item-system .message-card-top-title")?.textContent ??
-          "";
-        return txt.replace(/\\s+/g, " ").trim().length > 0;
-      });
+      const root = document.querySelector(".base-info-single-container");
+      if (!(root instanceof HTMLElement)) return false;
+      const anchor = root.querySelector("a.resume-btn-online");
+      if (!(anchor instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(anchor);
+      const rect = anchor.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.pointerEvents !== "none"
+      );
     })()`,
-    { timeout: 16_000 },
+    { timeout: 12_000 },
   );
 
   return foundName;
@@ -409,14 +439,14 @@ async function readOpenResumeView(page: Page): Promise<ResumeViewSnapshot> {
         .catch(() => [])) as string[];
       resourceUrls.push(...urls);
     }
-    const apiUrl = resourceUrls.find((url) => isResumeDataApiUrl(url));
+    const apiUrl = [...resourceUrls].reverse().find((url) => isResumeDataApiUrl(url));
     return {
       iframeSrc,
       resumeUrl,
       apiUrl,
       pageTitle,
       rawText,
-      urls: [iframeSrc, resumeUrl, apiUrl, ...resourceUrls]
+      urls: [iframeSrc, resumeUrl, apiUrl]
         .filter((item): item is string => !!item && item.length > 0),
     };
   } finally {
@@ -431,7 +461,7 @@ async function waitForResumeApiUrl(page: Page, timeoutMs = 10_000): Promise<stri
       const urls = (await frame
         .evaluate(`(() => performance.getEntriesByType("resource").map((entry) => entry.name))()`)
         .catch(() => [])) as string[];
-      const found = urls.find((url) => isResumeDataApiUrl(url));
+      const found = [...urls].reverse().find((url) => isResumeDataApiUrl(url));
       if (found) {
         return found;
       }
@@ -492,6 +522,29 @@ async function fetchResumeHtml(page: Page, resumeUrl: string): Promise<FetchResu
       };
     }
   })()`)) as FetchResult;
+}
+
+async function resolveIdentifiersFromResumeApi(
+  page: Page,
+  apiUrl: string | undefined,
+  preferredVisibleGeekId?: string,
+): Promise<ResumeIdentifiers | null> {
+  if (!apiUrl || !isResumeDataApiUrl(apiUrl)) {
+    return null;
+  }
+  const result = await fetchResumeHtml(page, apiUrl);
+  assertHealthyFetch(result);
+  if (!result.contentType.includes('json') && !result.body.trimStart().startsWith('{')) {
+    return null;
+  }
+  const payload = JSON.parse(result.body) as unknown;
+  return resolveIdentifiers(
+    [
+      ...collectIdentifierHitsFromUrl(result.url || apiUrl),
+      ...collectIdentifierHits(payload, result.url || apiUrl),
+    ],
+    preferredVisibleGeekId,
+  );
 }
 
 function assertHealthyFetch(result: FetchResult): void {
@@ -634,7 +687,9 @@ export async function resolveCandidateIdentifiers(
 
     await observer.flush();
     const view = await readOpenResumeView(page);
-    const identifiers = observer.resolve(sourceCandidate.visibleGeekId, view.urls);
+    const identifiers =
+      observer.resolve(sourceCandidate.visibleGeekId, view.urls) ??
+      (await resolveIdentifiersFromResumeApi(page, view.apiUrl, sourceCandidate.visibleGeekId));
     if (!identifiers?.encryptGeekId || !identifiers.encryptJobId || !identifiers.securityId) {
       return null;
     }
