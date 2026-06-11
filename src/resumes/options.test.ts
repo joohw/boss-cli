@@ -14,6 +14,9 @@ test('normalizeResumeSyncCliOptions parses recommend defaults', () => {
     limit: 20,
     unreadOnly: false,
     jsonOutput: false,
+    search: false,
+    coreRequirements: undefined,
+    bonusRequirements: undefined,
     jobKeyword: undefined,
     rootDir: undefined,
   });
@@ -28,6 +31,19 @@ test('normalizeResumeSyncCliOptions parses json flag', () => {
 
   assert.equal(options.jsonOutput, true);
   assert.equal(options.limit, 3);
+});
+
+test('normalizeResumeSyncCliOptions parses deep-search search requirements', () => {
+  const options = normalizeResumeSyncCliOptions({
+    rest: [],
+    flags: new Set<string>(['search']),
+    opts: { from: 'deep-search', job: 'Java', core: 'Java｜Spring | MySQL', bonus: '实习' },
+  });
+
+  assert.equal(options.search, true);
+  assert.equal(options.jobKeyword, 'Java');
+  assert.deepEqual(options.coreRequirements, ['Java', 'Spring', 'MySQL']);
+  assert.deepEqual(options.bonusRequirements, ['实习']);
 });
 
 test('normalizeResumeSyncCliOptions rejects invalid source', () => {
@@ -75,5 +91,41 @@ test('normalizeResumeSyncCliOptions rejects non-positive limit', () => {
         opts: { from: 'chat', limit: '0' },
       }),
     /--limit/,
+  );
+});
+
+test('normalizeResumeSyncCliOptions rejects search outside deep-search', () => {
+  assert.throws(
+    () =>
+      normalizeResumeSyncCliOptions({
+        rest: [],
+        flags: new Set<string>(['search']),
+        opts: { from: 'recommend', job: 'Java' },
+      }),
+    /--search/,
+  );
+});
+
+test('normalizeResumeSyncCliOptions rejects deep-search search without job', () => {
+  assert.throws(
+    () =>
+      normalizeResumeSyncCliOptions({
+        rest: [],
+        flags: new Set<string>(['search']),
+        opts: { from: 'deep-search' },
+      }),
+    /--job/,
+  );
+});
+
+test('normalizeResumeSyncCliOptions rejects core without search', () => {
+  assert.throws(
+    () =>
+      normalizeResumeSyncCliOptions({
+        rest: [],
+        flags: new Set<string>(),
+        opts: { from: 'deep-search', core: 'Java' },
+      }),
+    /--core/,
   );
 });

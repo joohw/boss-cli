@@ -77,6 +77,66 @@ export type NormalizedResumeSection = {
   lines: string[];
 };
 
+export type NormalizedResumeBasic = {
+  name: string;
+  gender: string;
+  age: string;
+  degree: string;
+  workYears: string;
+  activeStatus: string;
+  avatar: string;
+};
+
+export type NormalizedResumeExpectation = {
+  position: string;
+  salary: string;
+  city: string;
+};
+
+export type NormalizedResumeExpectationItem = {
+  position: string;
+  city: string;
+  salary: string;
+  industry: string;
+};
+
+export type NormalizedResumeWorkExperience = {
+  company: string;
+  position: string;
+  department: string;
+  start: string;
+  end: string;
+  duration: string;
+  responsibility: string;
+  performance: string;
+  keywords: string[];
+};
+
+export type NormalizedResumeProjectExperience = {
+  name: string;
+  role: string;
+  start: string;
+  end: string;
+  duration: string;
+  description: string;
+  achievement: string;
+};
+
+export type NormalizedResumeEducation = {
+  school: string;
+  major: string;
+  degree: string;
+  start: string;
+  end: string;
+  degreeName: string;
+  startDateDesc: string;
+  endDateDesc: string;
+  majorRanking: string;
+  courseDescription: string;
+  educationDescription: string;
+  tags: string[];
+};
+
 export type NormalizedResumeData = {
   source: 'c-resume-frame' | 'recruiter-resume-api';
   fetchedAt: string;
@@ -89,6 +149,16 @@ export type NormalizedResumeData = {
     encryptJobId: string;
     securityId: string;
   };
+  basic: NormalizedResumeBasic;
+  summary: string;
+  expectation: NormalizedResumeExpectation;
+  expectationList: NormalizedResumeExpectationItem[];
+  workExperience: NormalizedResumeWorkExperience[];
+  projectExperience: NormalizedResumeProjectExperience[];
+  education: NormalizedResumeEducation[];
+  certifications: string[];
+  professionalSkills: string[];
+  competitiveAnalysis: string[];
   rawText: string;
   paragraphs: string[];
   sections: NormalizedResumeSection[];

@@ -49,7 +49,7 @@
     "build": "tsc",
     "dev": "npm run build && node dist/cli/index.js",
     "deploy": "node scripts/deploy.mjs",
-    "test": "npm run build && node --test dist/resumes/options.test.js dist/resumes/identifiers.test.js dist/resumes/storage.test.js",
+    "test": "npm run build && node --test dist/resumes/options.test.js dist/resumes/identifiers.test.js dist/resumes/normalize.test.js dist/resumes/storage.test.js dist/resumes/sync.test.js",
     "test:baidu": "node --env-file=.env scripts/test-baidu-ocr.mjs"
   },
   "dependencies": {

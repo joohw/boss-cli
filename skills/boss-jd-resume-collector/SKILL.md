@@ -1,70 +1,81 @@
 ---
 name: boss-jd-resume-collector
-description: Use this skill when the user wants to input a JD/job description and collect BOSS/Zhipin resumes for later matching, including “输入 JD 找合适简历”, “BOSS 简历采集”, “根据 JD 收集候选人”, or “先采集候选人简历”. It orchestrates boss-cli resume collection only; it does not rank or match resumes against the JD.
+description: 当用户想输入 JD/岗位描述并采集 BOSS 直聘候选人简历用于后续匹配时使用本 skill，例如“输入 JD 找合适简历”、“BOSS 简历采集”、“根据 JD 收集候选人”、“先采集候选人简历”。本 skill 只编排 boss-cli 采集简历，不做 JD/简历匹配、排序或推荐。
 ---
 
-# BOSS JD Resume Collector
+# BOSS JD 简历采集
 
-## Purpose
+## 目标
 
-Collect local BOSS/Zhipin resume data for a JD so later steps can match candidates offline. This skill only performs data collection and validation; do not score, rank, or recommend candidates in v1.
+根据一份 JD，在本机采集 BOSS 直聘简历数据，供后续离线匹配使用。v1 只负责采集、校验和生成清单，不给候选人打分、不排序、不推荐。
 
-## Preconditions
+## 前置条件
 
-- `boss` is available on PATH from this repository build.
-- The user is logged in to BOSS in the browser session used by `boss-cli`.
-- The BOSS search/deep-search page is already set to the target role/search condition. v1 does not switch the search page job automatically.
+- `boss` 命令可用：优先使用 `--boss-bin`，其次使用 `BOSS_BIN`、PATH，Windows 下还会检查 npm 全局的 `boss.cmd`。
+- 当前 `boss-cli` 使用的浏览器会话已经登录 BOSS。
+- deep-search 来源会显式执行一次真实深搜匹配：`boss resumes --from deep-search --job <keyword> --search`，可能消耗 BOSS 匹配次数。
 
-## Workflow
+## 工作流程
 
-1. Save or receive the JD text.
-2. Identify a job keyword from the JD title/content. If unclear, ask the user for the exact job keyword before collecting.
-3. Run the bundled collector script:
+1. 接收或保存用户提供的 JD 文本。
+2. 从 JD 标题或正文中识别岗位关键词。如果关键词不明确，先向用户确认准确岗位关键词，不要盲目采集。
+3. 调用 skill 自带采集脚本：
 
 ```bash
 python "<skill_dir>/scripts/collect_boss_resumes.py" --jd-file "<jd.md>" --job-keyword "<keyword>"
 ```
 
-Alternatively pass JD text directly:
+也可以直接传入 JD 文本：
 
 ```bash
 python "<skill_dir>/scripts/collect_boss_resumes.py" --jd-text "<JD text>" --job-keyword "<keyword>"
 ```
 
-The script runs exactly these three source collections:
+脚本会先做采集前自检：
+
+```bash
+boss help
+boss recommend <keyword>
+boss deep-search <keyword>
+boss resumes --from chat --limit 1 --json
+```
+
+自检通过后，脚本严格执行三路采集：
 
 ```bash
 boss resumes --from chat --limit 3 --json
 boss resumes --from recommend --limit 3 --json --job <keyword>
-boss resumes --from deep-search --limit 3 --json
+boss resumes --from deep-search --limit 3 --json --job <keyword> --search
 ```
 
-## Success Criteria
+## 成功标准
 
-- Each source must produce exactly 3 usable resumes.
-- Usable statuses are `downloaded` and `skipped_existing`.
-- Every usable item must have existing `resume.md` and `resume.json` paths.
-- If any source has fewer than 3 usable resumes, treat the collection as failed and report the failed source and candidate errors.
+- `chat`、`recommend`、`deep-search` 每个来源都必须有 3 份可用简历。
+- 可用状态只包括 `downloaded` 和 `skipped_existing`。
+- 每条可用结果都必须能找到本地 `resume.md` 和 `resume.json`。
+- 任一来源不足 3 份时，本轮采集视为失败；但仍要报告失败来源、失败分类、候选人级错误，以及已经落地的可用简历总数。
 
-## Outputs
+## 输出
 
-The script writes a run directory under:
+脚本会在下面目录生成一次 run：
 
 ```text
 ~/.boss-cli/runs/<timestamp>_<safe_jd_title>/
 ```
 
-Files:
+文件说明：
 
-- `jd.md`: the JD used for this run.
-- `collection_manifest.json`: machine-readable run manifest.
-- `collection_summary.md`: concise human-readable summary.
+- `jd.md`：本轮采集使用的 JD。
+- `collection_manifest.json`：机器可读的采集清单。
+- `collection_summary.md`：给人看的中文摘要。
 
-Use only `jd.md`, `collection_manifest.json`, and listed local `resume.md` / `resume.json` files for later matching. Do not query BOSS during matching.
+后续匹配逻辑只能读取 `jd.md`、`collection_manifest.json`，以及 manifest 中列出的本地 `resume.md` / `resume.json` 文件。匹配阶段不要再实时访问 BOSS。
 
-## Safety
+失败 run 也可能包含已成功落地的简历；后续匹配只消费 manifest 中状态为 `downloaded` 或 `skipped_existing` 且本地文件存在的条目。
 
-- Do not send messages to candidates.
-- Do not change job status.
-- Do not broaden collection beyond 3 per source in v1.
-- Treat downloaded resumes as private recruiting data.
+## 安全约束
+
+- 不给候选人发消息。
+- 不修改职位状态。
+- v1 不扩大每来源 3 份的采集范围。
+- 下载的简历属于敏感招聘数据，按私密数据处理。

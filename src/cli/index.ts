@@ -16,8 +16,12 @@ loadEnv({ quiet: true });
 
 async function main() {
   const args = process.argv.slice(2);
+  const nonInteractive = args.length > 0;
   try {
     await runCli(args);
+    if (nonInteractive) {
+      process.exit(process.exitCode ?? 0);
+    }
   } catch (error) {
     if (isReadlineAbortError(error)) {
       process.exit(0);

@@ -13,6 +13,7 @@ import {
   waitForVisibleCResumeIframeReady,
 } from '../common/c_resume_capture.js';
 import { ensureChatIndexAllFilter, readCandidateListItems } from '../toolset/list.js';
+import { runDeepSearchMatchOnPage, type DeepSearchRunContext } from '../toolset/deep-search.js';
 import {
   ensureInRecommendPage,
   openRecommendResumePreviewByCandidate,
@@ -20,7 +21,7 @@ import {
   selectRecommendJob,
 } from '../toolset/recommend.js';
 import { collectIdentifierHits, collectIdentifierHitsFromUrl, resolveIdentifiers } from './identifiers.js';
-import { normalizeResumeApiPayload, normalizeResumeFrameSnapshot } from './normalize.js';
+import { normalizeRecruiterResumePayload } from './normalize.js';
 import type { ResumeSyncCliOptions } from './options.js';
 import { BossResumeObserver } from './observer.js';
 import {
@@ -83,9 +84,20 @@ type ResumeSyncStructuredOutput = {
   source: ResumeSource;
   limit: number;
   root: string;
+  searchContext?: ResumeSyncSearchContext;
   candidateCount: number;
   counts: ResumeSyncCounts;
   results: ResumeSyncResultItem[];
+};
+
+type ResumeSyncSearchContext = {
+  requestedJobKeyword: string;
+  selectedJob: string;
+  coreRequirements: string[];
+  bonusRequirements: string[];
+  remainingCountText: string;
+  resultUrl: string;
+  candidateCount: number;
 };
 
 const AUTH_OR_RISK_PATTERN =
@@ -93,11 +105,86 @@ const AUTH_OR_RISK_PATTERN =
 
 const BOSS_CHAT_SEARCH_URL = 'https://www.zhipin.com/web/chat/search';
 
+const CANVAS_TEXT_CAPTURE_SCRIPT = `(() => {
+  if (window.__bossCliResumeCanvasCaptureInstalled) return;
+  Object.defineProperty(window, "__bossCliResumeCanvasCaptureInstalled", {
+    value: true,
+    configurable: false,
+  });
+  const captured = [];
+  Object.defineProperty(window, "__bossCliResumeCanvasText", {
+    value: captured,
+    configurable: false,
+  });
+  const normalize = (value) => String(value ?? "").replace(/\\u00a0/g, " ").replace(/\\s+/g, " ").trim();
+  const canvasTranslateY = (context) => {
+    const canvas = context && context.canvas;
+    if (!canvas) return 0;
+    const transform = canvas.style && canvas.style.transform || window.getComputedStyle(canvas).transform || "";
+    const translate = /translateY\\((-?\\d+(?:\\.\\d+)?)px\\)/.exec(transform);
+    if (translate) return Number(translate[1]) || 0;
+    const matrix = /matrix\\([^,]+,[^,]+,[^,]+,[^,]+,[^,]+,\\s*(-?\\d+(?:\\.\\d+)?)\\)/.exec(transform);
+    if (matrix) return Number(matrix[1]) || 0;
+    return 0;
+  };
+  const pushText = (context, text, x, y) => {
+    const value = normalize(text);
+    if (!value) return;
+    const doc = document.scrollingElement || document.documentElement || document.body;
+    const scrollTop = Number(window.scrollY || doc && doc.scrollTop || 0);
+    const offsetY = scrollTop + canvasTranslateY(context);
+    captured.push({
+      text: value,
+      x: Number.isFinite(Number(x)) ? Number(x) : null,
+      y: Number.isFinite(Number(y)) ? Number(y) + offsetY : null,
+      at: Date.now(),
+    });
+  };
+  const patch = (prototype, method) => {
+    if (!prototype || typeof prototype[method] !== "function") return;
+    const original = prototype[method];
+    if (original.__bossCliResumeCanvasPatched) return;
+    const wrapped = function (...args) {
+      pushText(this, args[0], args[1], args[2]);
+      return original.apply(this, args);
+    };
+    Object.defineProperty(wrapped, "__bossCliResumeCanvasPatched", {
+      value: true,
+      configurable: false,
+    });
+    prototype[method] = wrapped;
+  };
+  patch(window.CanvasRenderingContext2D && window.CanvasRenderingContext2D.prototype, "fillText");
+  patch(window.CanvasRenderingContext2D && window.CanvasRenderingContext2D.prototype, "strokeText");
+})()`;
+
+const canvasCaptureInstalledPages = new WeakSet<Page>();
+
+async function installResumeCanvasTextCapture(page: Page): Promise<void> {
+  if (canvasCaptureInstalledPages.has(page)) {
+    return;
+  }
+  await page.evaluateOnNewDocument(CANVAS_TEXT_CAPTURE_SCRIPT);
+  canvasCaptureInstalledPages.add(page);
+}
+
 function isResumeDataApiUrl(url: string): boolean {
   return (
+    url.includes('/wapi/zpjob/view/geek/info') ||
     url.includes('/wapi/zpjob/view/geek/info/v2') ||
     url.includes('/wapi/zpitem/web/boss/search/geek/info')
   );
+}
+
+export function buildRecruiterResumeInfoUrl(candidate: Pick<
+  ResolvedResumeCandidate,
+  'encryptGeekId' | 'encryptJobId' | 'securityId'
+>): string {
+  const url = new URL('/wapi/zpjob/view/geek/info', 'https://www.zhipin.com');
+  url.searchParams.set('encryptGeekId', candidate.encryptGeekId);
+  url.searchParams.set('encryptJobId', candidate.encryptJobId);
+  url.searchParams.set('securityId', candidate.securityId);
+  return url.toString();
 }
 
 class ResumeSyncAbortError extends Error {
@@ -432,6 +519,257 @@ async function openChatConversationByCandidate(
   return foundName;
 }
 
+async function readFrameVisibleTextOnce(frame: Frame): Promise<string> {
+  return (await frame
+    .evaluate(`(() => {
+      const normalize = (value) => value.replace(/\\u00a0/g, " ").replace(/[ \\t]+/g, " ").trim();
+      const readCanvasText = () => {
+        const repairDuplicateGlyphs = (line) => {
+          const duplicateMatches = line.match(/([\\u4e00-\\u9fffA-Za-z0-9，。；：、,.：;:()（）-])\\1/g) || [];
+          if (line.length < 12 || duplicateMatches.length / line.length < 0.15) {
+            return line;
+          }
+          return line.replace(/([\\u4e00-\\u9fffA-Za-z0-9，。；：、,.：;:()（）-])\\1+/g, "$1");
+        };
+        const rows = Array.isArray(window.__bossCliResumeCanvasText)
+          ? window.__bossCliResumeCanvasText
+          : [];
+        const items = rows
+          .map((row) => ({
+            text: normalize(row && row.text),
+            x: Number(row && row.x),
+            y: Number(row && row.y),
+          }))
+          .filter((row) => row.text);
+        const coordItems = Array.from(
+          new Map(
+            items
+              .filter((row) => Number.isFinite(row.x) && Number.isFinite(row.y))
+              .map((row) => [Math.round(row.y) + ":" + Math.round(row.x) + ":" + row.text, row]),
+          ).values(),
+        ).sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
+        if (coordItems.length > 0) {
+          const groups = [];
+          for (const item of coordItems) {
+            const group = groups.find((entry) => Math.abs(entry.y - item.y) <= 3);
+            if (group) {
+              group.items.push(item);
+              group.y = (group.y + item.y) / 2;
+            } else {
+              groups.push({ y: item.y, items: [item] });
+            }
+          }
+          return groups
+            .sort((a, b) => a.y - b.y)
+            .map((group) => {
+              const deduped = [];
+              for (const item of group.items.sort((a, b) => a.x - b.x)) {
+                const previous = deduped[deduped.length - 1];
+                if (previous && previous.text === item.text && Math.abs(previous.x - item.x) <= 2) {
+                  continue;
+                }
+                deduped.push(item);
+              }
+              return repairDuplicateGlyphs(deduped.map((item) => item.text).join(""));
+            })
+            .join("\\n")
+            .replace(/\\n{3,}/g, "\\n\\n")
+            .trim();
+        }
+        const texts = items.map((row) => row.text);
+        return texts.join("\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
+      };
+      const ignoredTags = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"]);
+      const isHidden = (node) => {
+        let current = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+        while (current && current !== document.body) {
+          const style = window.getComputedStyle(current);
+          if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+            return true;
+          }
+          current = current.parentElement;
+        }
+        return false;
+      };
+      const collectRootText = (root, out) => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent || ignoredTags.has(parent.tagName) || isHidden(parent)) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return normalize(node.nodeValue || "").length > 0
+              ? NodeFilter.FILTER_ACCEPT
+              : NodeFilter.FILTER_REJECT;
+          },
+        });
+        while (walker.nextNode()) {
+          out.push(normalize(walker.currentNode.nodeValue || ""));
+        }
+        const elements = root.querySelectorAll ? Array.from(root.querySelectorAll("*")) : [];
+        for (const element of elements) {
+          if (element.shadowRoot) {
+            collectRootText(element.shadowRoot, out);
+          }
+        }
+      };
+      const body = document.body;
+      if (!body) return "";
+      const innerText = normalize(body.innerText || "");
+      if (innerText.length >= 20) {
+        return innerText;
+      }
+      const pieces = [];
+      collectRootText(body, pieces);
+      const domText = pieces.join("\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
+      if (domText.length >= 20) {
+        return domText;
+      }
+      return readCanvasText();
+    })()`)
+    .catch(() => '')) as string;
+}
+
+async function scrollResumeContainerToTop(page: Page): Promise<void> {
+  for (const targetFrame of page.frames()) {
+    const found = (await targetFrame
+      .evaluate(`(() => {
+      const isVisible = (el) => {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return rect.width > 8 && rect.height > 8 && style.display !== "none" && style.visibility !== "hidden";
+      };
+      const iframe = Array.from(document.querySelectorAll("iframe")).find((el) => {
+        const src = el.getAttribute("src") || "";
+        return src.includes("c-resume") && isVisible(el);
+      });
+      if (!iframe) return false;
+      let node = iframe.parentElement;
+      while (node) {
+        const style = window.getComputedStyle(node);
+        const scrollable = node.scrollHeight > node.clientHeight + 8;
+        const overflowOk = style.overflowY === "auto" || style.overflowY === "scroll" || style.overflowY === "overlay";
+        if (scrollable && overflowOk) {
+          node.scrollTop = 0;
+          return true;
+        }
+        node = node.parentElement;
+      }
+      window.scrollTo(0, 0);
+      return true;
+    })()`)
+      .catch(() => false)) as boolean;
+    if (found) {
+      return;
+    }
+  }
+}
+
+async function scrollResumeContainerDown(page: Page): Promise<{ moved: boolean; atEnd: boolean }> {
+  for (const targetFrame of page.frames()) {
+    const state = (await targetFrame
+      .evaluate(`(() => {
+      const isVisible = (el) => {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return rect.width > 8 && rect.height > 8 && style.display !== "none" && style.visibility !== "hidden";
+      };
+      const iframe = Array.from(document.querySelectorAll("iframe")).find((el) => {
+        const src = el.getAttribute("src") || "";
+        return src.includes("c-resume") && isVisible(el);
+      });
+      if (!iframe) return { found: false, moved: false, atEnd: true };
+      let node = iframe.parentElement;
+      while (node) {
+        const style = window.getComputedStyle(node);
+        const scrollable = node.scrollHeight > node.clientHeight + 8;
+        const overflowOk = style.overflowY === "auto" || style.overflowY === "scroll" || style.overflowY === "overlay";
+        if (scrollable && overflowOk) {
+          const prev = node.scrollTop;
+          const maxTop = Math.max(0, node.scrollHeight - node.clientHeight);
+          const step = Math.max(320, Math.floor(node.clientHeight * 0.75));
+          node.scrollTop = Math.min(maxTop, prev + step);
+          return {
+            found: true,
+            moved: node.scrollTop > prev,
+            atEnd: node.scrollTop >= maxTop - 2,
+          };
+        }
+        node = node.parentElement;
+      }
+      const doc = document.scrollingElement || document.documentElement || document.body;
+      if (!doc) return { found: true, moved: false, atEnd: true };
+      const prev = Math.max(window.scrollY || 0, doc.scrollTop || 0);
+      const maxTop = Math.max(0, doc.scrollHeight - window.innerHeight);
+      const step = Math.max(320, Math.floor(window.innerHeight * 0.75));
+      const next = Math.min(maxTop, prev + step);
+      window.scrollTo(0, next);
+      doc.scrollTop = next;
+      return {
+        found: true,
+        moved: next > prev,
+        atEnd: next >= maxTop - 2,
+      };
+    })()`)
+      .catch(() => ({ found: false, moved: false, atEnd: true }))) as {
+      found: boolean;
+      moved: boolean;
+      atEnd: boolean;
+    };
+    if (state.found) {
+      return {
+        moved: state.moved,
+        atEnd: state.atEnd,
+      };
+    }
+  }
+  return { moved: false, atEnd: true };
+}
+
+async function collectRenderedFrameText(page: Page, frame: Frame, timeoutMs: number): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let bestText = '';
+  let stableAtEndCount = 0;
+  await scrollResumeContainerToTop(page);
+  while (Date.now() < deadline) {
+    const text = (await readFrameVisibleTextOnce(frame)).replace(/\n{3,}/g, '\n\n').trim();
+    if (text.length > bestText.length) {
+      bestText = text;
+      stableAtEndCount = 0;
+    }
+    const scrollState = await scrollResumeContainerDown(page);
+    if (!scrollState.moved && scrollState.atEnd) {
+      stableAtEndCount += 1;
+      if (stableAtEndCount >= 2) {
+        break;
+      }
+    }
+    await sleepRandom(360, 520);
+  }
+  return bestText;
+}
+
+async function readVisibleResumeFrameText(page: Page, frame: Frame, timeoutMs = 12_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let lastText = '';
+  while (Date.now() < deadline) {
+    const remaining = Math.max(1_000, deadline - Date.now());
+    const frameTexts = await Promise.all(
+      [frame, ...frame.childFrames()].map((item) => collectRenderedFrameText(page, item, remaining)),
+    );
+    const rawText = Array.from(new Set(frameTexts.map((item) => item.trim()).filter(Boolean))).join('\n\n');
+    const text = rawText.replace(/\n{3,}/g, '\n\n').trim();
+    if (text.length >= 20 && text.length === lastText.length) {
+      return text;
+    }
+    if (text.length > lastText.length) {
+      lastText = text;
+    }
+    await sleepRandom(180, 260);
+  }
+  return lastText;
+}
+
 async function readOpenResumeView(page: Page): Promise<ResumeViewSnapshot> {
   const iframeHandle = await findVisibleCResumeIframeHandle(page);
   if (!iframeHandle) {
@@ -450,13 +788,7 @@ async function readOpenResumeView(page: Page): Promise<ResumeViewSnapshot> {
     const pageTitle = contentFrame
       ? ((await contentFrame.evaluate(`(() => document.title || "")()`)) as string)
       : '';
-    const rawText = contentFrame
-      ? ((await contentFrame.evaluate(`(() => {
-        const body = document.body;
-        if (!body) return "";
-        return (body.innerText || "").replace(/\\u00a0/g, " ").trim();
-      })()`)) as string)
-      : '';
+    const rawText = contentFrame ? await readVisibleResumeFrameText(page, contentFrame) : '';
     const resourceUrls: string[] = [];
     for (const frame of page.frames()) {
       const urls = (await frame
@@ -652,6 +984,71 @@ export async function collectSourceCandidates(
   }));
 }
 
+type SourceCandidateCollection = {
+  candidates: SourceCandidate[];
+  searchContext?: ResumeSyncSearchContext;
+};
+
+function toResumeSearchContext(context: DeepSearchRunContext, candidateCount: number): ResumeSyncSearchContext {
+  return {
+    requestedJobKeyword: context.requestedJobKeyword,
+    selectedJob: context.selectedJob,
+    coreRequirements: context.coreRequirements,
+    bonusRequirements: context.bonusRequirements,
+    remainingCountText: context.remainingCountText,
+    resultUrl: context.resultUrl,
+    candidateCount,
+  };
+}
+
+async function collectSourceCandidatesWithContext(
+  page: Page,
+  source: ResumeSource,
+  options: ResumeSyncCliOptions,
+): Promise<SourceCandidateCollection> {
+  if (source !== 'deep-search' || !options.search) {
+    return {
+      candidates: await collectSourceCandidates(page, source, options),
+    };
+  }
+  if (!options.jobKeyword) {
+    throw new Error('resumes --from deep-search --search 必须指定 --job。');
+  }
+
+  const runContext = await runDeepSearchMatchOnPage(page, {
+    jobKeyword: options.jobKeyword,
+    coreRequirements: options.coreRequirements,
+    bonusRequirements: options.bonusRequirements,
+  });
+  const frame = await ensureSearchFrameReady(page).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new ResumeSyncAbortError(`深度搜索已触发，但结果页未加载候选人卡片（岗位：${runContext.selectedJob || options.jobKeyword}）：${message}`);
+  });
+  const selectedJob = await readSearchSelectedJobLabel(page);
+  const candidates = await readSearchCandidateList(frame);
+  if (candidates.length === 0) {
+    throw new ResumeSyncAbortError(`深度搜索已触发，但结果页没有候选人卡片（岗位：${runContext.selectedJob || options.jobKeyword}）。`);
+  }
+
+  return {
+    searchContext: toResumeSearchContext(runContext, candidates.length),
+    candidates: candidates.slice(0, options.limit).map((candidate) => ({
+      source,
+      name: candidate.name,
+      jobLabel: selectedJob || runContext.selectedJob || 'unknown-job',
+      sourceMeta: buildSourceMeta({
+        listIndex: pickNumber(candidate.sourceMeta, 'listIndex') ?? null,
+        meta: candidate.sourceMeta.meta ?? null,
+        buttonText: candidate.sourceMeta.buttonText ?? null,
+        ka: candidate.sourceMeta.ka ?? null,
+        searchRequestedJob: runContext.requestedJobKeyword,
+        searchSelectedJob: runContext.selectedJob,
+        searchResultUrl: runContext.resultUrl,
+      }),
+    })),
+  };
+}
+
 async function openSourceCandidateResume(page: Page, candidate: SourceCandidate): Promise<boolean> {
   if (candidate.source === 'recommend') {
     const frame = await ensureInRecommendPage(page);
@@ -692,6 +1089,7 @@ export async function resolveCandidateIdentifiers(
   const observer = new BossResumeObserver(page);
   await observer.start();
   try {
+    await installResumeCanvasTextCapture(page);
     const opened = await openSourceCandidateResume(page, sourceCandidate);
     if (!opened) {
       throw new Error(`未能从 ${sourceCandidate.source} 列表打开候选人 ${sourceCandidate.name} 的在线简历。`);
@@ -743,39 +1141,31 @@ export async function downloadResumeData(
   ensureResumeViewMatchesCandidate(candidate, view);
 
   const fetchedAt = new Date().toISOString();
-  const downloadUrl = view.apiUrl || view.resumeUrl;
+  const downloadUrl = buildRecruiterResumeInfoUrl(candidate);
   const fetchResult = await fetchResumeHtml(page, downloadUrl);
   assertHealthyFetch(fetchResult);
-  let parsedPayload: unknown | null = null;
-  if (fetchResult.contentType.includes('json') || fetchResult.body.trimStart().startsWith('{')) {
-    parsedPayload = JSON.parse(fetchResult.body) as unknown;
+  if (!fetchResult.contentType.includes('json') && !fetchResult.body.trimStart().startsWith('{')) {
+    throw new Error(`候选人 ${candidate.candidateName} 的 recruiter 简历接口未返回 JSON。`);
   }
+  const parsedPayload = JSON.parse(fetchResult.body) as unknown;
 
-  const resume =
-    parsedPayload !== null
-      ? normalizeResumeApiPayload({
-          candidate,
-          fetchedAt,
-          resumeUrl: downloadUrl,
-          pageTitle: view.pageTitle,
-          payload: parsedPayload,
-        })
-      : normalizeResumeFrameSnapshot({
-          candidate,
-          fetchedAt,
-          resumeUrl: view.resumeUrl,
-          pageTitle: view.pageTitle,
-          rawText: view.rawText,
-        });
-  if (!resume.rawText.trim()) {
-    throw new Error(`候选人 ${candidate.candidateName} 的在线简历正文为空。`);
-  }
+  const resume = normalizeRecruiterResumePayload({
+    candidate,
+    fetchedAt,
+    resumeUrl: view.resumeUrl,
+    pageTitle: view.pageTitle,
+    payload: parsedPayload,
+  });
 
   return {
     fetchedAt,
     rawResponse: {
       source: candidate.source,
       fetchedAt,
+      request: {
+        endpoint: '/wapi/zpjob/view/geek/info',
+        url: downloadUrl,
+      },
       identifiers: {
         encryptGeekId: candidate.encryptGeekId,
         encryptJobId: candidate.encryptJobId,
@@ -822,7 +1212,8 @@ export async function syncResumesOnPage(
   options: ResumeSyncCliOptions,
 ): Promise<string> {
   await assertLoggedIn(page);
-  const candidates = await collectSourceCandidates(page, options.source, options);
+  const collection = await collectSourceCandidatesWithContext(page, options.source, options);
+  const candidates = collection.candidates;
   const rootDir = getResumeSyncRoot(options.rootDir);
   const results: ResumeSyncResultItem[] = [];
   const counts: ResumeSyncCounts = {
@@ -962,6 +1353,7 @@ export async function syncResumesOnPage(
     source: options.source,
     limit: options.limit,
     root: rootDir,
+    searchContext: collection.searchContext,
     candidateCount: candidates.length,
     counts,
     results,
