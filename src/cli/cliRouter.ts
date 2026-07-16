@@ -19,6 +19,7 @@ import {
   implPreview,
   implRecommendGreet,
   implSetBaiduCredentials,
+  implSetVolcengineCredentials,
   implBossSearch,
   implSendMessage,
   type ChatPageAction,
@@ -385,6 +386,22 @@ export async function executeCommand(argv: string[]): Promise<string> {
       );
     }
     return implSetBaiduCredentials(apiKey, secretKey);
+  }
+
+  if (cmd === '_volcengine-keys') {
+    const { rest, opts } = parseOpts(tail);
+    let accessKey = (opts['access-key'] ?? opts.accesskey ?? '').trim();
+    let secretKey = (opts['secret-key'] ?? opts.secretkey ?? '').trim();
+    if (!accessKey && rest.length >= 2) {
+      accessKey = rest[0]!.trim();
+      secretKey = rest.slice(1).join(' ').trim();
+    }
+    if (!accessKey || !secretKey) {
+      die(
+        '❌ 用法: _volcengine-keys --access-key <KEY> --secret-key <SECRET>\n    或: _volcengine-keys <KEY> <SECRET>（本命令不在 help 中列出）',
+      );
+    }
+    return implSetVolcengineCredentials(accessKey, secretKey);
   }
 
   if (cmd === 'login') {

@@ -124,3 +124,4 @@ export async function implRecommendGreet(opts: {
 }
 
 export { implSetBaiduCredentials } from './baidu_credentials.js';
+export { implSetVolcengineCredentials } from './volcengine_credentials.js';

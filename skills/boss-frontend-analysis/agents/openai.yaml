@@ -1,4 +1,4 @@
 interface:
-  display_name: "Boss Frontend Analysis"
-  short_description: "Capture and diff Boss frontend JS"
-  default_prompt: "Use $boss-frontend-analysis to capture current Boss frontend scripts, compare them with the verified baseline, and recommend boss-cli code changes."
+  display_name: "Boss Frontend Self-Repair"
+  short_description: "Repair Boss JS safety baselines"
+  default_prompt: "Use $boss-frontend-analysis to fix boss-cli when Boss frontend JS versions changed: archive current scripts, review risk diffs, update the strict availability baseline, and verify the gate."

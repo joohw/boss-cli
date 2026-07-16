@@ -114,6 +114,31 @@ boss deep-search --match
 
 ---
 
+## 在线简历 OCR
+
+`boss action resume` 与 `boss preview <姓名>` 会先保存在线简历截图；默认开启 OCR，结果写入 `~/.boss-cli/.cache/ocr/`。如只需要截图地址，可关闭 OCR：
+
+```bash
+BOSS_RESUME_OCR=0 boss action resume
+```
+
+OCR 服务商通过 `BOSS_RESUME_OCR_PROVIDER` 显式选择；不做自动回退。未设置时保持兼容，使用 `baidu`。
+
+```bash
+# 火山引擎 OCR（OCRNormal）
+boss _volcengine-keys --access-key <AccessKeyId> --secret-key <SecretAccessKey>
+boss action resume
+
+# 或手动配置
+export BOSS_RESUME_OCR_PROVIDER=volcengine
+export BOSS_VOLCENGINE_ACCESS_KEY=<AccessKeyId>
+export BOSS_VOLCENGINE_SECRET_KEY=<SecretAccessKey>
+```
+
+百度 OCR 仍可通过 `BOSS_RESUME_OCR_PROVIDER=baidu` 与 `BOSS_BAIDU_API_KEY` / `BOSS_BAIDU_SECRET_KEY` 使用。
+
+---
+
 ## 与 AI Agent 集成
 
 boss-cli 每条命令输出纯文本，适合 LLM 通过子进程编排：

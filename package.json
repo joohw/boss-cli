@@ -52,6 +52,7 @@
     "test:baidu": "node --env-file=.env scripts/test-baidu-ocr.mjs"
   },
   "dependencies": {
+    "@volcengine/openapi": "^1.36.2",
     "dotenv": "^17.4.2",
     "puppeteer-core": "^24.29.1"
   },

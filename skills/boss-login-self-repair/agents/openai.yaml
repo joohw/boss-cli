@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boss Login Self-Repair"
+  short_description: "Repair Boss login JS baselines"
+  default_prompt: "Use $boss-login-self-repair to fix boss login when Boss frontend JS versions changed: archive current scripts, review risk diffs, update the strict availability baseline, and verify the login gate."

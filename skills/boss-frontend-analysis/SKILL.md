@@ -1,13 +1,66 @@
 ---
 name: boss-frontend-analysis
-description: Capture, archive, diff, and assess Boss/Zhipin frontend JavaScript for boss-cli safety gates and anti-debug guard updates. Use when Codex needs to re-analyze current Boss frontend scripts, compare online JS with docs/research/boss-online-js baselines, update boss_availability, or recommend code changes after Boss changes zhipin-boss, zhipin-sign, risk-detection, remoteEntry, or security scripts.
+description: Capture, archive, diff, assess, and self-repair Boss/Zhipin frontend JavaScript baselines for boss-cli safety gates and anti-debug guard updates. Use when Codex needs to fix `boss login` or other boss-cli commands disabled by “Boss 线上前端 JS 与已验证基线不一致”, re-analyze current Boss frontend scripts, compare online JS with docs/research/boss-online-js baselines, update boss_availability, or recommend code changes after Boss changes zhipin-boss, zhipin-sign, risk-detection, remoteEntry, or security scripts.
 ---
 
 # Boss Frontend Analysis
 
-Use this skill when Boss online frontend assets changed and boss-cli must decide whether to stay disabled, update the verified baseline, or change page guards.
+Use this skill when Boss online frontend assets changed and boss-cli must decide whether to stay disabled, update the verified baseline, or change page guards. Treat the workflow as a strict self-repair run: archive first, review risk changes second, patch only accepted baselines third, then verify.
 
-## Workflow
+## Self-Repair Workflow
+
+Follow this sequence when a user asks to fix `boss login` or a command fails with the Boss availability error.
+
+1. Locate current guard state:
+
+```bash
+rg -n "boss_availability|VERIFIED_BOSS|VERIFIED_ZHIPIN|Boss CLI 已禁用|zhipin-boss/index|zhipin-sign" src docs skills
+```
+
+2. Run the capture script from the repository root. If the date directory already exists from a failed/partial capture, inspect it; use `--force` only when it is empty or intentionally being refreshed.
+
+```bash
+node skills/boss-frontend-analysis/scripts/capture_boss_frontend.mjs
+node skills/boss-frontend-analysis/scripts/capture_boss_frontend.mjs --force
+```
+
+3. Read the generated `analysis.md` and `manifest.json`. Extract these values from the current snapshot:
+
+- Boss index version and entry URLs: `polyfill.js`, `app.js`, `risk-detection.js`.
+- Boss bundle version and `remoteEntry.js` URL.
+- Zhipin sign version and entry URLs: `app.*.js`, `iframe-core.*.js`, `vendors~app.*.js`.
+- SHA-256 hashes for every guarded URL in `src/common/boss_availability.ts`.
+
+4. Compare against the previous verified baseline. Prefer normalization checks for version-only churn:
+
+- Normalize `zhipin-boss/index/v*`, `zhipin-boss/bundle/v*`, and `zhipin-sign/v*` paths before comparing high-risk files.
+- Confirm `risk-detection.js`, sign `vendors~app`, and sign `iframe-core` have no semantic/high-risk changes, or explicitly document the changes.
+- Review high-risk hits for `99001`, `99002`, `99004`, `99005`, `srcdoc`, `MutationObserver`, `isTrusted`, `sendAction`, `Function(`, `constructor`, `setInterval`, `console`, `devtools`, `security`, and `403.html`.
+
+5. Inspect guard coverage before patching:
+
+- `src/common/boss_page_guards.ts` must still block observed risk/security scripts and risky navigation/report URLs.
+- Do not broaden guards blindly. Add or change patterns only when the new snapshot contains a concrete uncovered risk URL.
+- Keep Puppeteer `page.evaluate` / `page.waitForFunction` additions as string scripts, never callback functions.
+
+6. Patch only the accepted baseline:
+
+- Update `VERIFIED_CAPTURE_LABEL`, `VERIFIED_BOSS_INDEX_VERSION`, `VERIFIED_BOSS_BUNDLE_VERSION`, and `VERIFIED_ZHIPIN_SIGN_VERSION` in `src/common/boss_availability.ts`.
+- Update `REQUIRED_ENTRY_SCRIPT_URLS`, `REQUIRED_LOGIN_SCRIPT_URLS`, and guarded URL/hash pairs in `GUARDED_SCRIPT_HASHES`.
+- Add a dated baseline review at the top of `docs/anti-detection.md` with version changes, hash-change summary, normalized comparison result, and guard coverage decision.
+
+7. Validate with the narrowest useful checks:
+
+```bash
+npm run build
+node -e "import('./dist/common/boss_availability.js').then(m=>m.assertBossCliAvailable()).then(()=>console.log('available'))"
+```
+
+If the second command prints `available`, the safety gate accepts the new baseline. If it fails with a mismatch, fix the baseline root cause; do not add bypasses or fallback logic.
+
+## Capture-Only Workflow
+
+Use this shorter workflow when the user only asks for analysis or a recommendation, not a repair.
 
 1. Run the capture script from the repository root:
 

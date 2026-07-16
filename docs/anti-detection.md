@@ -1,5 +1,21 @@
 # Boss 反自动化检测：防御策略文档
 
+## 2026-07-16 baseline review
+
+- Captured snapshot: `docs/research/boss-online-js/2026-07-16`.
+- Boss index changed from `v10723` to `v10741`; Boss bundle changed from `v6232` to `v6237`; Zhipin sign changed from `v5310` to `v5312`.
+- Same-URL hash changes: 0. After normalizing versioned paths, `risk-detection.js`, `remoteEntry.js`, and `iframe-core` matched the previous baseline; `boss app` and `vendors~app` changed only in versioned asset references/minified bytes, with high-risk pattern counts unchanged.
+- Guarded hashes were updated for Boss index `app.js`, `polyfill.js`, `risk-detection.js`, Boss bundle `remoteEntry.js`, and Zhipin sign `app`/`vendors~app`; `iframe-core` hash stayed unchanged.
+- `src/common/boss_page_guards.ts` still covers observed `zhipin-security`, `risk-detection`, `bosszhipin.com/static/zhipin/geek/sdk`, risk navigation, and report URLs in this snapshot; no guard change was required.
+
+## 2026-07-15 baseline review
+
+- Captured snapshot: `docs/research/boss-online-js/2026-07-15`.
+- Boss index changed from `v10718` to `v10723`; Boss bundle changed from `v6230` to `v6232`; Zhipin sign changed from `v5309` to `v5310`.
+- Same-URL hash changes: 0. After normalizing versioned paths, `risk-detection.js`, `polyfill.js`, `remoteEntry.js`, `iframe-core`, and `vendors~app` matched the previous baseline; entry app bootstraps changed chunk/module ids and the sign app CSS/app hash changed.
+- `src/common/boss_availability.ts` was updated with the new Boss index, Boss bundle, and Zhipin sign entry scripts plus guarded hashes.
+- `src/common/boss_page_guards.ts` request guards still cover the observed risk/security/report URLs in this snapshot; no guard change was required.
+
 ## 2026-07-13 baseline review
 
 - Captured snapshot: `docs/research/boss-online-js/2026-07-13`.
