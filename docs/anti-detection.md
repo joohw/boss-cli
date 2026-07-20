@@ -1,5 +1,13 @@
 # Boss 反自动化检测：防御策略文档
 
+## 2026-07-20 baseline review
+
+- Captured snapshot: `docs/research/boss-online-js/2026-07-20`.
+- Boss index changed from `v10741` to `v10753`; Boss bundle changed from `v6237` to `v6240`; Zhipin sign stayed `v5312`.
+- Same-URL hash changes: 0. After normalizing versioned paths, `risk-detection.js`, `polyfill.js`, and `remoteEntry.js` matched the previous baseline; all three Zhipin sign guarded scripts were byte-identical. The Boss app bootstrap changed only versioned asset references plus webpack chunk/module ids (`575` to `613` and related ids), with no new high-risk behavior.
+- Guarded hashes were updated for Boss index `app.js`, `polyfill.js`, `risk-detection.js`, and Boss bundle `remoteEntry.js`; Zhipin sign hashes stayed unchanged.
+- `src/common/boss_page_guards.ts` still covers the observed `zhipin-security`, `risk-detection`, `bosszhipin.com/static/zhipin/geek/sdk`, risk navigation, and report URLs in this snapshot; no guard change was required.
+
 ## 2026-07-16 baseline review
 
 - Captured snapshot: `docs/research/boss-online-js/2026-07-16`.
