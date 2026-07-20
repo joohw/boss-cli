@@ -1,5 +1,14 @@
 # Boss 反自动化检测：防御策略文档
 
+## 2026-07-14 baseline review
+
+- Captured snapshot: `docs/research/boss-online-js/2026-07-14`.
+- Boss index changed from `v10687` to `v10718`; Boss bundle changed from `v6214` to `v6230`; Zhipin sign stayed `v5309`.
+- The change is a cosmetic webpack re-bundle of the boss-index scripts (module split + variable renames). `risk-detection.js` string literals are identical (591/591, differing only in its self-referential version URL) and all 10 regexes are unchanged; the risk-pattern category counts match the 2026-07-13 baseline exactly. No new anti-debug / fingerprinting was introduced.
+- Same-URL hash changes: 0 (all sign, warlock, patas, mqtt, browser-check scripts unchanged). Only version-bumped boss-index and boss-bundle entry scripts moved.
+- `src/common/boss_availability.ts` was updated with the new Boss index and bundle entry scripts plus guarded hashes.
+- `src/common/boss_page_guards.ts` request guards use version-independent wildcards and still cover the observed risk/security/report URLs in this snapshot.
+
 ## 2026-07-13 baseline review
 
 - Captured snapshot: `docs/research/boss-online-js/2026-07-13`.

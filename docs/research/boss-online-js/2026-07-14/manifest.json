@@ -1,0 +1,1108 @@
+{
+  "capturedAt": "2026-07-14T04:03:00.683Z",
+  "entryPages": [
+    {
+      "label": "chat",
+      "url": "https://www.zhipin.com/web/chat/index",
+      "finalUrl": "https://www.zhipin.com/web/chat/index",
+      "bytes": 14327,
+      "sha256": "7ddf460284a2583e57568248997d6f8a8679695b91bf1fe9899bbff71293aa10",
+      "scripts": [
+        "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.14.js",
+        "https://static.zhipin.com/assets/sdk/apm/patas-compat.2.1.0.min.js",
+        "https://static.zhipin.com/assets/zhipin/chat/mqtt-v1.2.min.js",
+        "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+        "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+        "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js"
+      ]
+    },
+    {
+      "label": "login",
+      "url": "https://www.zhipin.com/web/user/?ka=header-login",
+      "finalUrl": "https://www.zhipin.com/web/user/?ka=header-login",
+      "bytes": 9114,
+      "sha256": "52f213c11116ffc7e765dbe777910a1767e0ca17cbc22a906f68949fe2e72062",
+      "scripts": [
+        "https://img.bosszhipin.com/static/zhipin/geek/sdk/browser-check-v2.js",
+        "https://static.zhipin.com/assets/sdk/apm/patas.2.3.0.min.js",
+        "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js",
+        "https://static.zhipin.com/zhipin-sign/v5309/static/js/iframe-core.7fa9fa18.js",
+        "https://static.zhipin.com/zhipin-sign/v5309/static/js/vendors~app.9ac375ae.js",
+        "https://static.zhipin.com/zhipin-sign/v5309/static/js/app.ee012dc3.js"
+      ]
+    }
+  ],
+  "count": 47,
+  "totalBytes": 19262431,
+  "skippedNestedScriptUrls": [
+    {
+      "url": "https://github.com/dcodeIO/ProtoBuf.js",
+      "source": "https://static.zhipin.com/assets/zhipin/chat/mqtt-v1.2.min.js"
+    },
+    {
+      "url": "https://unpkg.weizhipin.com/@datastar/warlock-detect-dom@latest/dist/index.js",
+      "source": "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.14.js, https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js"
+    }
+  ],
+  "unresolvedScriptUrls": [
+    {
+      "url": "https://img.bosszhipin.com/v2/upload/boss-zhipin/static/debug-update.js",
+      "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "error": "HTTP 404 Not Found while fetching https://img.bosszhipin.com/v2/upload/boss-zhipin/static/debug-update.js"
+    },
+    {
+      "url": "https://img.bosszhipin.com/v2/upload/boss-zhipin/static/update.js",
+      "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/336.js, https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "error": "HTTP 404 Not Found while fetching https://img.bosszhipin.com/v2/upload/boss-zhipin/static/update.js"
+    },
+    {
+      "url": "https://static.zhipin.com/nebula-web/nebulartc-2.3.9.js",
+      "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/nebula-web/nebulartc-2.3.9.js"
+    },
+    {
+      "url": "https://static.zhipin.com/static/js/fullpage.0.0.0.js",
+      "source": "https://static.zhipin.com/library/js/plugins/gt.js, https://static.zhipin.com/assets/zhipin/geek/verify-sdk/jiyan/gt.0.5.0.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/static/js/fullpage.0.0.0.js"
+    },
+    {
+      "url": "https://static.zhipin.com/static/js/geetest.0.0.0.js",
+      "source": "https://static.zhipin.com/library/js/plugins/gt.js, https://static.zhipin.com/assets/zhipin/geek/verify-sdk/jiyan/gt.0.5.0.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/static/js/geetest.0.0.0.js"
+    },
+    {
+      "url": "https://static.zhipin.com/static/remoteEntry.js",
+      "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/static/remoteEntry.js"
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/357.js",
+      "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/357.js"
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/375.js",
+      "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js, https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js, https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/zhipin-boss/index/v10718/static/js/375.js"
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-security/web/boss/index.js",
+      "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "error": "HTTP 404 Not Found while fetching https://static.zhipin.com/zhipin-security/web/boss/index.js"
+    }
+  ],
+  "entries": [
+    {
+      "url": "https://img.bosszhipin.com/static/file/2024/qrcode.min.js",
+      "finalUrl": "https://img.bosszhipin.com/static/file/2024/qrcode.min.js",
+      "localPath": "raw/static/file/2024/qrcode.min.js",
+      "bytes": 23737,
+      "sha256": "a59b2ba15e5b0ed663461cb379ab68733b689795596d2afc87d12b6a2b33e42c",
+      "contentType": "application/javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/270.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {}
+    },
+    {
+      "url": "https://img.bosszhipin.com/static/zhipin/geek/sdk/browser-check-v2.js",
+      "finalUrl": "https://img.bosszhipin.com/static/zhipin/geek/sdk/browser-check-v2.js",
+      "localPath": "raw/static/zhipin/geek/sdk/browser-check-v2.js",
+      "bytes": 1241,
+      "sha256": "0ba94a338ed00ba353384a091f36fca73c67651cf6fe28c588c5e926aaa0399e",
+      "contentType": "application/javascript",
+      "sources": [
+        {
+          "source": "login",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1,
+        "console": 1
+      }
+    },
+    {
+      "url": "https://img.bosszhipin.com/v2/upload/npm/boss-js-upload/boss-js-upload-1.0.39.min.js",
+      "finalUrl": "https://img.bosszhipin.com/v2/upload/npm/boss-js-upload/boss-js-upload-1.0.39.min.js",
+      "localPath": "raw/v2/upload/npm/boss-js-upload/boss-js-upload-1.0.39.min.js",
+      "bytes": 368044,
+      "sha256": "583775ff1e12d870df212743c769fdebdcff3283763997383dd6175384bbc953",
+      "contentType": "application/javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/270.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 2,
+        "Function(": 13,
+        "constructor": 74,
+        "setInterval": 2,
+        "console": 84,
+        "security": 8
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/sdk/apm/patas-compat.2.1.0.min.js",
+      "finalUrl": "https://static.zhipin.com/assets/sdk/apm/patas-compat.2.1.0.min.js",
+      "localPath": "raw/assets/sdk/apm/patas-compat.2.1.0.min.js",
+      "bytes": 212594,
+      "sha256": "2c8d059c16800f91639bc7eb2040bfa8a211425d02a8b702831c9cd5b2f6315a",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "chat",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 2,
+        "sendAction": 1,
+        "Function(": 1,
+        "constructor": 43,
+        "setInterval": 1,
+        "console": 14
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/sdk/apm/patas.2.3.0.min.js",
+      "finalUrl": "https://static.zhipin.com/assets/sdk/apm/patas.2.3.0.min.js",
+      "localPath": "raw/assets/sdk/apm/patas.2.3.0.min.js",
+      "bytes": 115588,
+      "sha256": "cf96ad9e6da919b4a88d623b53d7ba2cc49529df9d12ef7d886164c3482424cc",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "login",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "sendAction": 1,
+        "constructor": 6,
+        "setInterval": 1,
+        "console": 12
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/sdk/nebula-web/NebulaASR-1.2.0.js",
+      "finalUrl": "https://static.zhipin.com/assets/sdk/nebula-web/NebulaASR-1.2.0.js",
+      "localPath": "raw/assets/sdk/nebula-web/NebulaASR-1.2.0.js",
+      "bytes": 30473,
+      "sha256": "38d333b3e68cb2cbb016254d3064270eb15ba0521c0b85d863f758d740643f27",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "console": 23
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.14.js",
+      "finalUrl": "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.14.js",
+      "localPath": "raw/assets/sdk/warlock/warlockdata.min.2.2.14.js",
+      "bytes": 71048,
+      "sha256": "5979a30734aa6ce729989e545c61f52a8b6e717bdd544e894e3c60db893e7d68",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "chat",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "constructor": 3,
+        "console": 8
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js",
+      "finalUrl": "https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js",
+      "localPath": "raw/assets/sdk/warlock/warlockdata.min.2.2.15.js",
+      "bytes": 71174,
+      "sha256": "51bd06ef6a77d5ceecef040c5ff8c44324f425104bb505137302de1e20327345",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "login",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "constructor": 3,
+        "console": 8
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/zhipin/chat/mqtt-v1.2.min.js",
+      "finalUrl": "https://static.zhipin.com/assets/zhipin/chat/mqtt-v1.2.min.js",
+      "localPath": "raw/assets/zhipin/chat/mqtt-v1.2.min.js",
+      "bytes": 128295,
+      "sha256": "d63db9287a0aba5dc81c3b1fb393303a63b1a6c0dd0aec5bc26ddc84b0dfc67f",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "chat",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1,
+        "console": 2,
+        "verify": 19
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/zhipin/chat/swiper.min.js",
+      "finalUrl": "https://static.zhipin.com/assets/zhipin/chat/swiper.min.js",
+      "localPath": "raw/assets/zhipin/chat/swiper.min.js",
+      "bytes": 143034,
+      "sha256": "5c26dbf61b3922aa3290fbaba9a5640bef360d5d8243174738dde7086d25bcca",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 2,
+        "constructor": 10
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/jiyan/gt.0.5.0.js",
+      "finalUrl": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/jiyan/gt.0.5.0.js",
+      "localPath": "raw/assets/zhipin/geek/verify-sdk/jiyan/gt.0.5.0.js",
+      "bytes": 9623,
+      "sha256": "e58874d6ed454d69bff7dfe0b6685c9563c5a9b03a538cc61b853ff7c359fa39",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/verify-sdk-v5.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/verify-sdk-v4.1.js",
+      "finalUrl": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/verify-sdk-v4.1.js",
+      "localPath": "raw/assets/zhipin/geek/verify-sdk/verify-sdk-v4.1.js",
+      "bytes": 16965,
+      "sha256": "a996cdd4a408701e62a6d9dba73725985ae360e243c1fe7d2b2c533321d4ed83",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "console": 1,
+        "verify": 20,
+        "403.html": 2
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/verify-sdk-v5.js",
+      "finalUrl": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/verify-sdk-v5.js",
+      "localPath": "raw/assets/zhipin/geek/verify-sdk/verify-sdk-v5.js",
+      "bytes": 17148,
+      "sha256": "331e2bcfbef77e6f87e3ab497e1c763ff5fd094d2c05b693172fdd1c4a47f410",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/270.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "console": 1,
+        "verify": 21,
+        "403.html": 2
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/library/js/plugins/gt.js",
+      "finalUrl": "https://static.zhipin.com/library/js/plugins/gt.js",
+      "localPath": "raw/library/js/plugins/gt.js",
+      "bytes": 8922,
+      "sha256": "b841851d4ee0505c21b145d7b2f44285d96945189d098399255c5b8c24bf2314",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/assets/zhipin/geek/verify-sdk/verify-sdk-v4.1.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/assets/library/js/BenzAMRRecorder-1.1.5.min.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/assets/library/js/BenzAMRRecorder-1.1.5.min.js",
+      "localPath": "raw/zhipin-boss/assets/library/js/BenzAMRRecorder-1.1.5.min.js",
+      "bytes": 450856,
+      "sha256": "2231cea60b023dbd2d365ca7c42806609f22a84e04a429a7c5846f1254c2cf7e",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "constructor": 4,
+        "setInterval": 1,
+        "console": 28
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/assets/library/js/lottie-5.9.6.min.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/assets/library/js/lottie-5.9.6.min.js",
+      "localPath": "raw/zhipin-boss/assets/library/js/lottie-5.9.6.min.js",
+      "bytes": 279771,
+      "sha256": "90ddd292e929683bab4dcd608f6edc0559c8291c4ba7517cd35782c220c1bfa9",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/270.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "Function(": 7,
+        "constructor": 10,
+        "setInterval": 2,
+        "console": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/100.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/100.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/100.js",
+      "bytes": 7589,
+      "sha256": "1cebf34be3b376e736abc3018c5c9a6785eba1ce04aa98ec57a9e934dbf9214c",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "constructor": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/117.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/117.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/117.js",
+      "bytes": 265841,
+      "sha256": "b7caf431334a622971c6dce0fc11768c408b39452d3554a72d59819eabefd04c",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 1,
+        "constructor": 41,
+        "console": 6,
+        "security": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/140.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/140.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/140.js",
+      "bytes": 19167,
+      "sha256": "d1539f803a10fe5ad1e75a1ffcd52053f153dcb6d3243e988ee190d799bb34e5",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 2,
+        "constructor": 6
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/212.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/212.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/212.js",
+      "bytes": 650369,
+      "sha256": "fc60c8679819b9522a7f3120726136fe2a4d92ed2ea65e8ef704acec2db1b89d",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 7,
+        "Function(": 3,
+        "constructor": 15,
+        "setInterval": 6,
+        "console": 23
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/270.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/270.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/270.js",
+      "bytes": 4286728,
+      "sha256": "11194f6b0ab02e55be1b7dba74f1ce9a57c2ae902c176196584f6345a0d9caba",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 7,
+        "sendAction": 666,
+        "Function(": 33,
+        "constructor": 6,
+        "setInterval": 53,
+        "console": 213,
+        "verify": 82,
+        "security": 614
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/278.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/278.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/278.js",
+      "bytes": 42826,
+      "sha256": "5c370f3938ed9be101b31ad8296b0dc7965d867c8ef3aa9c6b1cef4c239f745e",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 10,
+        "constructor": 15,
+        "console": 2
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/366.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/366.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/366.js",
+      "bytes": 39956,
+      "sha256": "8e8de83c37a0e2c273df2b9a896e753ef1a6e85c5ee9a020e11c22d48a52b29a",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "setInterval": 1,
+        "console": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/471.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/471.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/471.js",
+      "bytes": 64652,
+      "sha256": "dcf7b2cae3207b4f52d38b6536602ac620d142ef425b7cb8773581a231cdde12",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 5,
+        "constructor": 5,
+        "console": 2,
+        "devtools": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/526.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/526.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/526.js",
+      "bytes": 56844,
+      "sha256": "0f63235d31e80090d428194e44cefca71e848ae03557329f2e501bfc3e03e2fb",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "constructor": 33,
+        "console": 1,
+        "security": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/692.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/692.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/692.js",
+      "bytes": 86910,
+      "sha256": "250fe4cc2d999c2b0ff0c076be3193f7827f9c201332d211671cdc2d4ef4b169",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "constructor": 8,
+        "console": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/754.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/754.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/754.js",
+      "bytes": 232315,
+      "sha256": "a43912938f23a41b0a2e85d83a1b158d0b2a0a6ab89342611cacf48ac579dd6f",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 3,
+        "constructor": 39,
+        "setInterval": 1,
+        "console": 16
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/756.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/js/756.js",
+      "localPath": "raw/boss-bundle-v6230/static/js/756.js",
+      "bytes": 32038,
+      "sha256": "6f82a927df02707fcbbe02102bdf211cdf850c2730b5794ff874b6e27244aa60",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 10,
+        "constructor": 9,
+        "console": 4
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/bundle/v6230/static/remoteEntry.js",
+      "localPath": "raw/boss-bundle-v6230/remoteEntry.js",
+      "bytes": 10465,
+      "sha256": "dd4bde71d20bf53882fa5e8cdae03baa4cd3d4347f5c1e66be8aadfc4aa64ab8",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "nested script reference"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1,
+        "console": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/122.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/122.js",
+      "localPath": "raw/boss-index-v10718/122.js",
+      "bytes": 25099,
+      "sha256": "252cfd7a67b4da3e65768f67e2928e59cfe2026bfdf64f24c99948e1f39c46e4",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "constructor": 1,
+        "setInterval": 1,
+        "console": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/140.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/140.js",
+      "localPath": "raw/boss-index-v10718/140.js",
+      "bytes": 19001,
+      "sha256": "b00795648bc2b82dff34f51b624fc8a6c1ee45eb15158d5172448b118e397883",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 2,
+        "constructor": 6
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/212.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/212.js",
+      "localPath": "raw/boss-index-v10718/212.js",
+      "bytes": 636405,
+      "sha256": "5a9ed0cfd84e2e6b736b62fd2aa67f8a62cd303728bf1d0b478da94a56644f16",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 7,
+        "Function(": 3,
+        "constructor": 15,
+        "setInterval": 6,
+        "console": 23
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/272.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/272.js",
+      "localPath": "raw/boss-index-v10718/272.js",
+      "bytes": 25506,
+      "sha256": "18410c38298d55ede2e737e00584e002889c1dae21442c1a5a3251104d597ff2",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "console": 2
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/278.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/278.js",
+      "localPath": "raw/boss-index-v10718/278.js",
+      "bytes": 41482,
+      "sha256": "61020197afecaeb8c5066e5cfc8e747ac0c0fac813ace378244cb1ab12d69e04",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 10,
+        "constructor": 15,
+        "console": 2
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/296.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/296.js",
+      "localPath": "raw/boss-index-v10718/296.js",
+      "bytes": 10679,
+      "sha256": "c37c9f8af3f72a4ed6b855d9c96617a49ae9f8725deb46c5172e837bb99e10ff",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1,
+        "constructor": 10
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/336.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/336.js",
+      "localPath": "raw/boss-index-v10718/336.js",
+      "bytes": 4700428,
+      "sha256": "03ebf79e19d02746894f61ec513196becf6326c21eda6265081ebd9dba2736d6",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "srcdoc": 1,
+        "MutationObserver": 39,
+        "isTrusted": 4,
+        "sendAction": 373,
+        "Function(": 53,
+        "constructor": 174,
+        "setInterval": 21,
+        "console": 203,
+        "devtools": 6,
+        "verify": 6,
+        "security": 684,
+        "403.html": 4
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/347.js",
+      "localPath": "raw/boss-index-v10718/347.js",
+      "bytes": 4466077,
+      "sha256": "52be7cfe71a960bb966a35a57761e7531dd02d3c463070c5c1d97e93f44ec83f",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "99001": 1,
+        "99004": 1,
+        "MutationObserver": 2,
+        "isTrusted": 6,
+        "sendAction": 844,
+        "debugger": 1,
+        "Function(": 24,
+        "constructor": 2,
+        "setInterval": 23,
+        "console": 200,
+        "devtools": 1,
+        "verify": 17,
+        "security": 648
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/692.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/692.js",
+      "localPath": "raw/boss-index-v10718/692.js",
+      "bytes": 86429,
+      "sha256": "428d2e91d7ad111fde16b7613c7e5c5db6e8e84909014cf5879d619cff41c098",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "constructor": 8,
+        "console": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/756.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/756.js",
+      "localPath": "raw/boss-index-v10718/756.js",
+      "bytes": 32566,
+      "sha256": "a80e21408553c45a9290c4e515b1e90c0b16d91d7e750a1734be4d66e1f4f9bc",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "Function(": 11,
+        "constructor": 9,
+        "console": 4
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/799.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/799.js",
+      "localPath": "raw/boss-index-v10718/799.js",
+      "bytes": 484323,
+      "sha256": "50ee1f5e8254ed1df9c8f59797b30f36b65779c56fe3a61478a69dc4ff0a9eaa",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 1,
+        "constructor": 83,
+        "console": 7,
+        "security": 2
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/893.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/893.js",
+      "localPath": "raw/boss-index-v10718/893.js",
+      "bytes": 91188,
+      "sha256": "7a5bcf845836d47c123c23d86d7531a99c5a77a945f890168ceef02b0be123b0",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+          "note": "inferred webpack chunk"
+        },
+        {
+          "source": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+          "note": "inferred webpack chunk"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 5,
+        "debugger": 1,
+        "Function(": 1,
+        "constructor": 5,
+        "console": 3,
+        "devtools": 3
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/app.js",
+      "localPath": "raw/boss-index-v10718/app.js",
+      "bytes": 11721,
+      "sha256": "68f6c03dd3625e991536a9142dd9b32b857d58fe87f2514e534594d64ce3eef3",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "chat",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "Function(": 1,
+        "console": 7
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/polyfill.js",
+      "localPath": "raw/boss-index-v10718/polyfill.js",
+      "bytes": 186590,
+      "sha256": "a13c89ce208f95a56384bf532360b44a8a57bd433e64e5337bc8566dd5099a23",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "chat",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 2,
+        "Function(": 5,
+        "constructor": 59,
+        "setInterval": 3,
+        "console": 5
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-boss/index/v10718/static/js/risk-detection.js",
+      "localPath": "raw/boss-index-v10718/risk-detection.js",
+      "bytes": 24887,
+      "sha256": "7db62a24265be651efb47fcc3a3ef1ca89c3c1edabbddf6bf097c12987d38f22",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "chat",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "99001": 2,
+        "99002": 1,
+        "99004": 1,
+        "99005": 1,
+        "srcdoc": 1,
+        "MutationObserver": 2,
+        "isTrusted": 5,
+        "sendAction": 2,
+        "Function(": 1,
+        "constructor": 3,
+        "setInterval": 1,
+        "console": 5,
+        "devtools": 1,
+        "security": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-sign/v5309/static/js/app.ee012dc3.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-sign/v5309/static/js/app.ee012dc3.js",
+      "localPath": "raw/zhipin-sign-v5309/app.ee012dc3.js",
+      "bytes": 60562,
+      "sha256": "038e5a007c0d708f2ce370dbbb02de8c202d85dbfef59ad084e672f07446a2f5",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "login",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "sendAction": 1,
+        "setInterval": 1,
+        "console": 3,
+        "verify": 6,
+        "security": 1
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-sign/v5309/static/js/iframe-core.7fa9fa18.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-sign/v5309/static/js/iframe-core.7fa9fa18.js",
+      "localPath": "raw/zhipin-sign-v5309/iframe-core.7fa9fa18.js",
+      "bytes": 107311,
+      "sha256": "2170fa54732f95da0b233a80a5cec6858bb2c8aec15361febe4764200a4eb02d",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "login",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "MutationObserver": 5,
+        "constructor": 8,
+        "console": 4,
+        "devtools": 6
+      }
+    },
+    {
+      "url": "https://static.zhipin.com/zhipin-sign/v5309/static/js/vendors~app.9ac375ae.js",
+      "finalUrl": "https://static.zhipin.com/zhipin-sign/v5309/static/js/vendors~app.9ac375ae.js",
+      "localPath": "raw/zhipin-sign-v5309/vendors~app.9ac375ae.js",
+      "bytes": 507964,
+      "sha256": "bf6cd6d0be836703b86916f2ddeee69987e4e3c4f9476f16091bf9314458883b",
+      "contentType": "application/x-javascript",
+      "sources": [
+        {
+          "source": "login",
+          "note": "entry page script"
+        }
+      ],
+      "searchHits": {
+        "srcdoc": 1,
+        "MutationObserver": 4,
+        "Function(": 12,
+        "constructor": 86,
+        "setInterval": 4,
+        "console": 46,
+        "verify": 5,
+        "security": 3,
+        "403.html": 2
+      }
+    }
+  ]
+}
