@@ -1,4 +1,4 @@
-name: cloudflare-dns-audit
+name: cloudflare-dns-cutover
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
 
-      - name: Audit DNS access
+      - name: Remove the obsolete Pages CNAME
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -35,7 +35,29 @@ jobs:
           records_response="$(curl --fail-with-body --silent --show-error \
             --header "$auth_header" \
             "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?name=boss-cli.com")"
-          printf '%s' "$records_response" | jq '{
-            dns_access: .success,
-            records: [.result[] | {name, type, content, proxied}]
-          }'
+          record_id="$(printf '%s' "$records_response" | jq -er '
+            [.result[] | select(
+              .name == "boss-cli.com" and
+              .type == "CNAME" and
+              .content == "boss-cli-git.pages.dev"
+            )] | select(length == 1) | .[0].id
+          ')"
+
+          delete_response="$(curl --fail-with-body --silent --show-error \
+            --request DELETE \
+            --header "$auth_header" \
+            "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records/${record_id}")"
+          printf '%s' "$delete_response" | jq -e '.success == true' >/dev/null
+
+          verify_response="$(curl --fail-with-body --silent --show-error \
+            --header "$auth_header" \
+            "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?name=boss-cli.com")"
+          remaining_pages_cnames="$(printf '%s' "$verify_response" | jq '[
+            .result[] | select(
+              .name == "boss-cli.com" and
+              .type == "CNAME" and
+              .content == "boss-cli-git.pages.dev"
+            )
+          ] | length')"
+          test "$remaining_pages_cnames" -eq 0
+          echo 'Removed only the obsolete boss-cli-git.pages.dev CNAME; MX and TXT records were preserved.'
