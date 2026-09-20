@@ -12,6 +12,8 @@ type PageProps = {
   params: Promise<{ slug: string }>
 }
 
+export const dynamicParams = false
+
 export function generateStaticParams() {
   return BLOG_POSTS.map((post) => ({ slug: post.slug }))
 }

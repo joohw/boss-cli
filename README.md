@@ -191,16 +191,17 @@ tag 推送后，workflow 会自动安装依赖、构建、检查 npm 版本、�
 
 ### 官网前端
 
-`landing/` 使用 Next.js 静态导出，并由 Cloudflare Pages 项目 `boss-cli-git` 直接连接 GitHub 仓库。推送到 `main` 后，Cloudflare 会自动构建并发布官网。
+`landing/` 使用 Next.js 静态导出，并由 Cloudflare Workers Static Assets 托管。推送到 `main` 后，Cloudflare Workers Builds 会自动构建并发布官网。
 
-Cloudflare Pages 构建配置：
+Cloudflare Workers Builds 配置：
 
+- Worker：`boss-cli`
 - Root directory：`landing`
 - Build command：`npm run build`
-- Build output directory：`out`
+- Deploy command：`npx wrangler deploy`
 - Production branch：`main`
 
-自定义域名为 `boss-cli.com`，部署不依赖 GitHub Actions 或仓库中的 Cloudflare API Secret。
+静态资源目录与自定义域名由 `landing/wrangler.jsonc` 管理。生产域名为 `boss-cli.com`，部署不依赖 GitHub Actions 或仓库中的 Cloudflare API Secret。
 
 ---
 
