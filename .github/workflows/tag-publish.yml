@@ -12,8 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: npm-publish-${{ github.ref_name || github.event.inputs.version || github.run_id }}
@@ -25,23 +24,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      - name: Decide npm publish
-        id: npm_gate
+      - name: Validate npm credentials
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -n "$NPM_TOKEN" ]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "NPM_TOKEN secret is missing; skipping publish."
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::Missing GitHub Actions secret: NPM_TOKEN"
+            exit 1
           fi
 
       - name: Setup Node
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -50,7 +43,6 @@ jobs:
 
       - name: Resolve target version
         id: version
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           current_version="$(node -p "require('./package.json').version")"
@@ -71,7 +63,6 @@ jobs:
           echo "target=$target_version" >> "$GITHUB_OUTPUT"
 
       - name: Sync package version
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         run: |
           current_version="$(node -p "require('./package.json').version")"
           target_version="${{ steps.version.outputs.target }}"
@@ -82,16 +73,13 @@ jobs:
           fi
 
       - name: Install dependencies
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         run: npm ci
 
       - name: Build package
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         run: npm run build
 
       - name: Check published npm version
         id: npm_version
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         run: |
           version="${{ steps.version.outputs.target }}"
           if npm view "@joohw/boss-cli@${version}" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
@@ -102,17 +90,16 @@ jobs:
           fi
 
       - name: Check publish payload
-        if: ${{ steps.npm_gate.outputs.publish == 'true' && steps.npm_version.outputs.exists != 'true' }}
+        if: ${{ steps.npm_version.outputs.exists != 'true' }}
         run: npm pack --dry-run --json
 
       - name: Publish npm package
-        if: ${{ steps.npm_gate.outputs.publish == 'true' && steps.npm_version.outputs.exists != 'true' }}
+        if: ${{ steps.npm_version.outputs.exists != 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
 
       - name: Update npm latest dist-tag
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -121,7 +108,6 @@ jobs:
           npm dist-tag add "@joohw/boss-cli@${target}" latest --registry=https://registry.npmjs.org/
 
       - name: Verify npm latest
-        if: ${{ steps.npm_gate.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           target="${{ steps.version.outputs.target }}"
@@ -145,6 +131,8 @@ jobs:
     needs: publish
     if: ${{ startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Create or update GitHub Release
         env:
