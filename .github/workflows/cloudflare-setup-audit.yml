@@ -1,4 +1,4 @@
-name: cloudflare-setup-audit
+name: cloudflare-dns-audit
 
 on:
   workflow_dispatch:
@@ -19,22 +19,13 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
 
-      - name: Audit Workers Builds and DNS access
+      - name: Audit DNS access
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
           auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
-
-          builds_response="$(curl --fail-with-body --silent --show-error \
-            --header "$auth_header" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/builds/tokens")"
-          printf '%s' "$builds_response" | jq '{
-            builds_access: .success,
-            build_token_count: (.result | length),
-            build_token_names: [.result[].build_token_name]
-          }'
 
           zones_response="$(curl --fail-with-body --silent --show-error \
             --header "$auth_header" \
