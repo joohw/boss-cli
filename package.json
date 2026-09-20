@@ -48,7 +48,6 @@
   "scripts": {
     "build": "tsc",
     "dev": "npm run build && node dist/cli/index.js",
-    "deploy": "node scripts/deploy.mjs",
     "test:baidu": "node --env-file=.env scripts/test-baidu-ocr.mjs"
   },
   "dependencies": {
@@ -57,7 +56,6 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
-    "ssh2": "^1.17.0",
     "typescript": "^5.3.3"
   },
   "author": "Joo <1546635571@qq.com>",

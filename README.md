@@ -175,7 +175,9 @@ npm run dev     # build + 交互模式
 
 ## 发布
 
-仓库通过 GitHub Actions 自动发布，工作流文件是 `.github/workflows/tag-publish.yml`。
+### npm 包
+
+仓库通过 GitHub Actions 自动发布 npm 包，工作流文件是 `.github/workflows/tag-publish.yml`。
 
 发布新版本时，本地只需要更新 `package.json` 版本号、提交代码、创建并推送 `v*` tag：
 
@@ -186,6 +188,17 @@ git push origin v0.6.0
 ```
 
 tag 推送后，workflow 会自动安装依赖、构建、检查 npm 版本、发布 `@joohw/boss-cli`、更新 `latest` dist-tag，并创建或更新 GitHub Release。npm 发布依赖仓库 Secret `NPM_TOKEN`，本地不需要手动执行 `npm publish`。
+
+### 官网前端
+
+`landing/` 使用 Next.js 静态导出，推送到 `main` 且前端文件发生变化时，`.github/workflows/pages-deploy.yml` 会构建 `landing/out` 并部署到 Cloudflare Pages 项目 `boss-cli`。
+
+首次部署前，在 Cloudflare 创建名为 `boss-cli`、生产分支为 `main` 的 Direct Upload Pages 项目，并在 GitHub 仓库的 Actions secrets 中配置：
+
+- `CLOUDFLARE_API_TOKEN`：仅授予目标账号 `Account > Cloudflare Pages > Edit` 权限的 API Token。
+- `CLOUDFLARE_ACCOUNT_ID`：Cloudflare Account ID。
+
+不要使用 Cloudflare Global API Key。自定义域名 `boss-cli.com` 需要在 Cloudflare Pages 项目中绑定一次。
 
 ---
 
