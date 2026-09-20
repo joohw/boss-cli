@@ -1,19 +1,21 @@
 'use client'
 
+import Link from 'next/link'
+
 export default function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-6">
       <div className="max-w-6xl mx-auto h-16 flex items-center justify-between">
-        <a href="/" aria-label="boss-cli 首页">
+        <Link href="/" aria-label="boss-cli 首页">
           <span className="text-teal-500 font-bold text-lg">boss</span>
           <span className="text-white font-bold text-lg">-cli</span>
-        </a>
+        </Link>
 
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-slate-400 hover:text-white text-sm transition-colors">功能</a>
           <a href="#examples" className="text-slate-400 hover:text-white text-sm transition-colors">示例</a>
           <a href="#faq" className="text-slate-400 hover:text-white text-sm transition-colors">常见问题</a>
-          <a href="/blog" className="text-slate-400 hover:text-white text-sm transition-colors">博客</a>
+          <Link href="/blog" className="text-slate-400 hover:text-white text-sm transition-colors">博客</Link>
         </nav>
 
         <div className="flex items-center gap-4">

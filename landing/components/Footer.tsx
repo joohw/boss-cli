@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 export default function Footer() {
   return (
     <footer className="px-6 py-12">
@@ -13,7 +15,7 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
-          <a href="/blog" className="text-slate-400 hover:text-white transition-colors">博客</a>
+          <Link href="/blog" className="text-slate-400 hover:text-white transition-colors">博客</Link>
           <a href="https://github.com/joohw/boss-cli" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">GitHub</a>
           <a href="https://www.npmjs.com/package/@joohw/boss-cli" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">NPM</a>
           <a href="https://github.com/joohw/boss-cli/issues" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">Issues</a>

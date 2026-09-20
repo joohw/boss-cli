@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "wrangler dev --port 3000",
-    "lint": "eslint . --ext ts,tsx",
+    "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "deploy": "npm run build && wrangler deploy"
   },
