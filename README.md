@@ -191,14 +191,16 @@ tag 推送后，workflow 会自动安装依赖、构建、检查 npm 版本、�
 
 ### 官网前端
 
-`landing/` 使用 Next.js 静态导出，推送到 `main` 且前端文件发生变化时，`.github/workflows/pages-deploy.yml` 会构建 `landing/out` 并部署到 Cloudflare Pages 项目 `boss-cli`。
+`landing/` 使用 Next.js 静态导出，并由 Cloudflare Pages 项目 `boss-cli-git` 直接连接 GitHub 仓库。推送到 `main` 后，Cloudflare 会自动构建并发布官网。
 
-首次部署前，在 Cloudflare 创建名为 `boss-cli`、生产分支为 `main` 的 Direct Upload Pages 项目，并在 GitHub 仓库的 Actions secrets 中配置：
+Cloudflare Pages 构建配置：
 
-- `CLOUDFLARE_API_TOKEN`：仅授予目标账号 `Account > Cloudflare Pages > Edit` 权限的 API Token。
-- `CLOUDFLARE_ACCOUNT_ID`：Cloudflare Account ID。
+- Root directory：`landing`
+- Build command：`npm run build`
+- Build output directory：`out`
+- Production branch：`main`
 
-不要使用 Cloudflare Global API Key。自定义域名 `boss-cli.com` 需要在 Cloudflare Pages 项目中绑定一次。
+自定义域名为 `boss-cli.com`，部署不依赖 GitHub Actions 或仓库中的 Cloudflare API Secret。
 
 ---
 
