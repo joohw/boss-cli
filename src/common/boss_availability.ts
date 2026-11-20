@@ -3,10 +3,12 @@ import { createHash } from 'node:crypto';
 const CHECK_ENTRY_URL = 'https://www.zhipin.com/web/chat/index';
 const CHECK_LOGIN_URL = 'https://www.zhipin.com/web/user/?ka=header-login';
 const CHECK_TIMEOUT_MS = 20_000;
-const VERIFIED_CAPTURE_LABEL = '2026-07-13 boss-online-js snapshot';
-const VERIFIED_BOSS_INDEX_VERSION = 'v10687';
-const VERIFIED_BOSS_BUNDLE_VERSION = 'v6214';
-const VERIFIED_ZHIPIN_SIGN_VERSION = 'v5309';
+const VERIFIED_CAPTURE_LABEL = '2026-11-17 boss-online-js snapshot';
+const VERIFIED_BOSS_INDEX_VERSION = 'v11778';
+const VERIFIED_BOSS_BUNDLE_VERSION = 'v6477';
+const VERIFIED_ZHIPIN_SIGN_VERSION = 'v5333';
+const BOSS_INDEX_APP_URL = 'https://static.zhipin.com/zhipin-boss/index/v11778/static/js/app.js';
+const VERIFIED_BOSS_BUNDLE_HASH = '4659c081238430b95d503f1108ba59086c22ee9fbc45980ca55b54b1ea1587d4';
 
 const CHECK_HEADERS = {
   'user-agent':
@@ -15,21 +17,21 @@ const CHECK_HEADERS = {
 } as const;
 
 const REQUIRED_ENTRY_SCRIPT_URLS = [
-  'https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.14.js',
+  'https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js',
   'https://static.zhipin.com/assets/sdk/apm/patas-compat.2.1.0.min.js',
   'https://static.zhipin.com/assets/zhipin/chat/mqtt-v1.2.min.js',
-  'https://static.zhipin.com/zhipin-boss/index/v10687/static/js/polyfill.js',
-  'https://static.zhipin.com/zhipin-boss/index/v10687/static/js/app.js',
-  'https://static.zhipin.com/zhipin-boss/index/v10687/static/js/risk-detection.js',
+  'https://static.zhipin.com/zhipin-boss/index/v11778/static/js/polyfill.js',
+  BOSS_INDEX_APP_URL,
+  'https://static.zhipin.com/zhipin-boss/index/v11778/static/js/risk-detection.js',
 ] as const;
 
 const REQUIRED_LOGIN_SCRIPT_URLS = [
   'https://img.bosszhipin.com/static/zhipin/geek/sdk/browser-check-v2.js',
   'https://static.zhipin.com/assets/sdk/apm/patas.2.3.0.min.js',
   'https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js',
-  'https://static.zhipin.com/zhipin-sign/v5309/static/js/iframe-core.7fa9fa18.js',
-  'https://static.zhipin.com/zhipin-sign/v5309/static/js/vendors~app.9ac375ae.js',
-  'https://static.zhipin.com/zhipin-sign/v5309/static/js/app.ee012dc3.js',
+  'https://static.zhipin.com/zhipin-sign/v5333/static/js/iframe-core.a35c6000.js',
+  'https://static.zhipin.com/zhipin-sign/v5333/static/js/vendors.9a2efe85.js',
+  'https://static.zhipin.com/zhipin-sign/v5333/static/js/app.85b65004.js',
 ] as const;
 
 const GUARDED_SCRIPT_HASHES = [
@@ -49,12 +51,7 @@ const GUARDED_SCRIPT_HASHES = [
     sha256: 'cf96ad9e6da919b4a88d623b53d7ba2cc49529df9d12ef7d886164c3482424cc',
   },
   {
-    label: 'chat warlock',
-    url: 'https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.14.js',
-    sha256: '5979a30734aa6ce729989e545c61f52a8b6e717bdd544e894e3c60db893e7d68',
-  },
-  {
-    label: 'login warlock',
+    label: 'chat and login warlock',
     url: 'https://static.zhipin.com/assets/sdk/warlock/warlockdata.min.2.2.15.js',
     sha256: '51bd06ef6a77d5ceecef040c5ff8c44324f425104bb505137302de1e20327345',
   },
@@ -65,38 +62,33 @@ const GUARDED_SCRIPT_HASHES = [
   },
   {
     label: 'boss-index app',
-    url: 'https://static.zhipin.com/zhipin-boss/index/v10687/static/js/app.js',
-    sha256: '253e397dc8d9c8bafefed75195e558e1e4daf64ab03978e14f10709a41c39b50',
+    url: BOSS_INDEX_APP_URL,
+    sha256: 'f2bac935fab96e2fc8bb09f8d8ad19dda8a6aa1b939512f0d9624d01a9aaae54',
   },
   {
     label: 'boss-index polyfill',
-    url: 'https://static.zhipin.com/zhipin-boss/index/v10687/static/js/polyfill.js',
-    sha256: '154893dbe41633d643d0cdd471c03054203cc33adb697ea5940118a99100e635',
+    url: 'https://static.zhipin.com/zhipin-boss/index/v11778/static/js/polyfill.js',
+    sha256: 'de3813688681685a453586735263b76c4b39a675cdb301553c9827cf35de340a',
   },
   {
     label: 'boss-index risk-detection',
-    url: 'https://static.zhipin.com/zhipin-boss/index/v10687/static/js/risk-detection.js',
-    sha256: '4b5bb8f5daa6779add833a8986fba462ea694ce7a2c521382b70ef13aaf41f3d',
-  },
-  {
-    label: 'boss-bundle remoteEntry',
-    url: 'https://static.zhipin.com/zhipin-boss/bundle/v6214/static/remoteEntry.js',
-    sha256: 'f014e80252c282baa3719aaabbf8f494cef11736dec69876bf273b2b41c0d44b',
+    url: 'https://static.zhipin.com/zhipin-boss/index/v11778/static/js/risk-detection.js',
+    sha256: '04d87024d60139241c07b4762c64b0c29ff2fc4dd88f9bf566c3f4ffbe1bbe84',
   },
   {
     label: 'zhipin-sign app',
-    url: 'https://static.zhipin.com/zhipin-sign/v5309/static/js/app.ee012dc3.js',
-    sha256: '038e5a007c0d708f2ce370dbbb02de8c202d85dbfef59ad084e672f07446a2f5',
+    url: 'https://static.zhipin.com/zhipin-sign/v5333/static/js/app.85b65004.js',
+    sha256: '8c678738585c5bbd42e3d778176408a462031bde5eb6ea08dc0ca0e2f06a44de',
   },
   {
     label: 'zhipin-sign iframe-core',
-    url: 'https://static.zhipin.com/zhipin-sign/v5309/static/js/iframe-core.7fa9fa18.js',
-    sha256: '2170fa54732f95da0b233a80a5cec6858bb2c8aec15361febe4764200a4eb02d',
+    url: 'https://static.zhipin.com/zhipin-sign/v5333/static/js/iframe-core.a35c6000.js',
+    sha256: '4bde3350c0d8be98bf34f49b92e6e0e9745760a7638f621b45500678c23dfec1',
   },
   {
     label: 'zhipin-sign vendor',
-    url: 'https://static.zhipin.com/zhipin-sign/v5309/static/js/vendors~app.9ac375ae.js',
-    sha256: 'bf6cd6d0be836703b86916f2ddeee69987e4e3c4f9476f16091bf9314458883b',
+    url: 'https://static.zhipin.com/zhipin-sign/v5333/static/js/vendors.9a2efe85.js',
+    sha256: '5a6e06340abd02c6b77472f4465b16fc23fdcfc3f2ace5a32863a3d6f12ca6a3',
   },
 ] as const;
 
@@ -160,15 +152,7 @@ function findCurrentScriptUrl(
   assetUrls: readonly string[],
   expectedUrl: string,
 ): { url: string | null; reason: string | null } {
-  if (assetUrls.includes(expectedUrl)) {
-    return { url: expectedUrl, reason: null };
-  }
-
   const expectedIdentity = toStableScriptIdentity(expectedUrl);
-  if (expectedIdentity === expectedUrl) {
-    return { url: null, reason: null };
-  }
-
   const matches = assetUrls.filter((url) => toStableScriptIdentity(url) === expectedIdentity);
   if (matches.length === 0) {
     return { url: null, reason: null };
@@ -182,9 +166,9 @@ function findCurrentScriptUrl(
   return { url: matches[0], reason: null };
 }
 
-function formatDisabledMessage(reasons: string[]): string {
+function formatReviewFailure(reasons: string[]): string {
   return [
-    'Boss CLI 已禁用：Boss 线上前端 JS 与已验证基线不一致。',
+    'Boss 前端发布验收失败：线上脚本未通过基线校验。',
     `已验证基线：${VERIFIED_CAPTURE_LABEL}，Boss index ${VERIFIED_BOSS_INDEX_VERSION}，Boss bundle ${VERIFIED_BOSS_BUNDLE_VERSION}，Zhipin sign ${VERIFIED_ZHIPIN_SIGN_VERSION}。`,
     '',
     '触发原因：',
@@ -192,6 +176,32 @@ function formatDisabledMessage(reasons: string[]): string {
     '',
     '处理方式：重新归档 Boss 线上原始 JS，复核反调试/风控策略，然后更新 boss_availability 基线后再发版。',
   ].join('\n');
+}
+
+async function fetchVerifiedScript(url: string, expectedSha256: string): Promise<Buffer> {
+  const { buffer, finalUrl } = await fetchBufferStrict(url);
+  if (finalUrl !== url) {
+    throw new Error(`脚本发生跳转：${url} -> ${finalUrl}`);
+  }
+  const actualSha256 = sha256(buffer);
+  if (actualSha256 !== expectedSha256) {
+    throw new Error(`SHA-256 不一致：url ${url}, expected ${expectedSha256}, actual ${actualSha256}`);
+  }
+  return buffer;
+}
+
+async function verifyCurrentBundle(chatApp: Buffer, chatAppUrl: string): Promise<void> {
+  const matches = new Set(
+    Array.from(
+      chatApp.toString('utf8').matchAll(/https:\/\/static\.zhipin\.com\/zhipin-boss\/bundle\/v\d+\/static\/remoteEntry\.js(?=["'])/g),
+      (match) => match[0],
+    ),
+  );
+  if (matches.size !== 1) {
+    throw new Error(`聊天脚本 ${chatAppUrl} 应引用一个业务包入口，实际 ${matches.size} 个：${[...matches].join(', ')}`);
+  }
+  const [url] = matches;
+  await fetchVerifiedScript(url, VERIFIED_BOSS_BUNDLE_HASH);
 }
 
 async function assertEntryPageMatches(params: {
@@ -225,7 +235,7 @@ async function assertEntryPageMatches(params: {
   }
 }
 
-export async function assertBossCliAvailable(): Promise<void> {
+export async function assertBossFrontendBaseline(): Promise<void> {
   const entryPage = await assertEntryPageMatches({
     pageLabel: 'Boss 聊天入口页',
     url: CHECK_ENTRY_URL,
@@ -237,10 +247,10 @@ export async function assertBossCliAvailable(): Promise<void> {
     requiredScripts: REQUIRED_LOGIN_SCRIPT_URLS,
   });
   const reasons = [...entryPage.reasons, ...loginPage.reasons];
-  const currentAssetUrls = [...entryPage.assetUrls, ...loginPage.assetUrls];
+  const currentAssetUrls = [...new Set([...entryPage.assetUrls, ...loginPage.assetUrls])];
 
   if (reasons.length > 0) {
-    throw new BossAvailabilityError(formatDisabledMessage(reasons));
+    throw new BossAvailabilityError(formatReviewFailure(reasons));
   }
 
   for (const guarded of GUARDED_SCRIPT_HASHES) {
@@ -250,26 +260,31 @@ export async function assertBossCliAvailable(): Promise<void> {
       continue;
     }
 
-    const guardedUrl = current.url ?? guarded.url;
+    if (!current.url) {
+      reasons.push(`${guarded.label} 缺少已验证脚本：${guarded.url}`);
+      continue;
+    }
+
+    let buffer: Buffer;
     try {
-      const { buffer, finalUrl } = await fetchBufferStrict(guardedUrl);
-      if (finalUrl !== guardedUrl) {
-        reasons.push(`${guarded.label} 发生跳转：${guardedUrl} -> ${finalUrl}`);
-        continue;
-      }
-      const actualSha256 = sha256(buffer);
-      if (actualSha256 !== guarded.sha256) {
-        reasons.push(
-          `${guarded.label} SHA-256 不一致：url ${guardedUrl}, expected ${guarded.sha256}, actual ${actualSha256}`,
-        );
-      }
+      buffer = await fetchVerifiedScript(current.url, guarded.sha256);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      reasons.push(`${guarded.label} 读取失败：${msg}`);
+      reasons.push(`${guarded.label} ${current.url}：${msg}`);
+      continue;
+    }
+
+    if (guarded.url === BOSS_INDEX_APP_URL) {
+      try {
+        await verifyCurrentBundle(buffer, current.url);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        reasons.push(`boss-bundle remoteEntry：${msg}`);
+      }
     }
   }
 
   if (reasons.length > 0) {
-    throw new BossAvailabilityError(formatDisabledMessage(reasons));
+    throw new BossAvailabilityError(formatReviewFailure(reasons));
   }
 }

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BOSS 页面守卫</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>BOSS 页面守卫</h1>
+      <p id="status" role="status">正在读取当前标签页…</p>
+      <dl id="counts" hidden>
+        <div><dt>安全资源阻断</dt><dd id="assets">0</dd></div>
+        <div><dt>上报请求返回 204</dt><dd id="reports">0</dd></div>
+      </dl>
+      <p id="notice" class="notice" role="alert" hidden></p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

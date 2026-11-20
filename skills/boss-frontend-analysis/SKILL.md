@@ -33,8 +33,9 @@ node skills/boss-frontend-analysis/scripts/capture_boss_frontend.mjs
 5. Keep the policy strict:
 
 - Do not add fallback or bypass switches for availability checks.
-- If online entry pages reference unverified Boss JS versions, boss-cli must remain disabled.
+- If online entry pages reference unverified Boss JS, hold releases until the review passes. Normal CLI commands do not run the check.
 - Only update `boss_availability.ts` after raw scripts are archived and the risk strategy has been reviewed.
+- Run `npm run check:boss-frontend` to verify the release baseline against the live entry scripts and their actual remote bundle.
 - Puppeteer `page.evaluate` / `page.waitForFunction` additions must use string scripts, not callback functions.
 
 ## Analysis Checklist
@@ -52,7 +53,7 @@ node skills/boss-frontend-analysis/scripts/capture_boss_frontend.mjs
 When reporting results, include:
 
 - Current online versions and whether they match the verified baseline.
-- Whether boss-cli should remain disabled.
+- Whether the release baseline passes, separate from normal CLI behavior.
 - Exact files or constants that need updates.
 - Any selectors, request patterns, or script guards that changed.
 - Build and runtime checks performed.

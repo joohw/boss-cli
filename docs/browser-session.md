@@ -74,25 +74,16 @@ withBossSessionPage(callback)
   ├── getPageRef() / pickExistingPage  ← 确认为 zhipin.com 页面
   ├── page.bringToFront()
   │
-  ├── page.evaluateOnNewDocument()     ← 页面级防御：
-  │   ├── navigator.webdriver → undefined
-  │   ├── navigator.plugins → 模拟3个Chrome插件
-  │   ├── navigator.languages → ['zh-CN','zh','en']
-  │   ├── window.chrome 对象 mock
-  │   ├── window.close() → no-op
-  │   ├── history.back() → no-op
-  │   ├── history.go(n<0) → 阻止
-  │   ├── Location.assign/replace → 拦截风险 URL:
-  │   │     about:blank
-  │   │     /web/common/403.html
-  │   │     /web/common/nonsupport.html
-  │   │     /web/user/safe/verify-slider
-  │   │     /web/passport/zp/* / /web/passport/cm/*
-  │   ├── beforeunload / unload 事件阻止
-  │   ├── window.closed → 始终 false
-  │   └── console.clear() / clear() / window.console 替换入口 → 默认锁住
+  ├── installBossPageGuards(page)      ← 同一会话内每个 Page 安装一次
+  │   ├── evaluateOnNewDocument() 注册脚本，当前文档也立即尝试注入
+  │   ├── navigator.webdriver → false
+  │   ├── navigator.languages 为空时 → ['zh-CN','zh','en']
+  │   ├── 尝试包装 window.close()（本机 Chrome 未替换成功）
+  │   ├── history.back() / forward() / go(n<0) → no-op
+  │   ├── 尝试包装 Location 上可修改的导航入口
+  │   └── 默认让 console.clear() 不清屏，并简化 console 对象参数
   │
-  ├── CDP 拦截（每条命令重新建立）：
+  ├── CDP 拦截（同一会话内每个 Page 安装一次）：
   │   ├── Network.setCacheDisabled     ← 禁用 HTTP 缓存
   │   └── Fetch.enable patterns:       ← 请求阶段拦截安全文件、风险跳转和检测上报
   │        *zhipin-security/web/boss/*       (aegis_bg.wasm, index.js)
@@ -100,14 +91,15 @@ withBossSessionPage(callback)
   │        *bosszhipin.com/static/zhipin/geek/sdk/*  (browser-check等)
   │        *logapi.zhipin.com/dap/api/json*  (返回 204)
   │        *apm-fe.zhipin.com/wapi/zpApm/*   (返回 204)
-  │        */web/passport/*                  (阻断风控跳转)
+  │        Passport 风险页精确列表           (含 CM security.html 与 security-check.html)
   │
   ├── framenavigated 主框架守卫       ← 若落到 about:blank / 403 / verify / passport，则回到沟通页
   │
-  ├── page.goto(BOSS_CHAT_INDEX_URL)   ← 强制导航到沟通页
-  ├── ensureMenuListStableAfterLoad    ← 等侧栏稳定
+  ├── 按命令选项校验沟通页 URL 和侧栏状态
   └── callback(page)                   ← 执行具体命令（list/chat等）
 ```
+
+页面注入与 CDP 请求拦截都在 `src/common/boss_page_guards.ts`。守卫只影响已安装页面中的脚本、匹配的请求和导航；账号状态、服务端限流和服务端响应仍由平台决定。`npm run check:boss-frontend` 是独立的发布验收，普通命令不会自动执行。
 
 ## 跨命令复用
 

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "BOSS 页面守卫",
+  "version": "0.2.0",
+  "description": "打开 BOSS 直聘页面时自动启动守卫。",
+  "minimum_chrome_version": "118",
+  "permissions": ["debugger", "webNavigation"],
+  "host_permissions": ["https://www.zhipin.com/*"],
+  "content_scripts": [{
+    "matches": ["https://www.zhipin.com/*"],
+    "exclude_matches": [
+      "https://www.zhipin.com/web/user*",
+      "https://www.zhipin.com/web/passport*",
+      "https://www.zhipin.com/web/common/403.html*",
+      "https://www.zhipin.com/web/common/nonsupport.html*"
+    ],
+    "js": ["page-guard.js"],
+    "run_at": "document_start",
+    "world": "MAIN",
+    "all_frames": true,
+    "match_about_blank": true
+  }],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "BOSS 页面守卫",
+    "default_popup": "popup.html"
+  }
+}

@@ -1,0 +1,14 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+body { margin: 0; min-width: 270px; }
+main { padding: 16px; }
+h1 { margin: 0 0 8px; font-size: 16px; }
+p { margin: 0 0 12px; line-height: 1.5; }
+dl { margin: 12px 0; }
+dl div { display: flex; justify-content: space-between; margin: 6px 0; }
+dd { margin: 0; font-variant-numeric: tabular-nums; }
+.notice { margin: 10px 0 0; overflow-wrap: anywhere; }

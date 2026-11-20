@@ -1,5 +1,13 @@
 # Boss 反自动化检测：防御策略文档
 
+## 2026-11-17 线上复核
+
+- [脚本快照与分析](research/boss-online-js/2026-11-17/analysis.md)：聊天壳 `v11778`、业务包 `v6477`、登录包 `v5333`。登录 vendor 改名为 `vendors.9a2efe85.js`，聊天和登录入口都引用 Warlock `2.2.15`。
+- `risk-detection.js` 仍包含 `99000`–`99005` 六类事件；登录 vendor 仍包含隐藏 `srcdoc` iframe、反调试和 Passport 跳转。新版登录 vendor 的 CM 安全检查改用 `/web/passport/cm/security.html`，聊天包仍有 `security-check.html`，页面守卫覆盖两者。ZP 新增代码 `38`，按配置或默认登录地址跳转，未增加登录入口拦截规则。
+- 聊天分包从页面同源加载 `/zhipin-security/web/boss/index.js`，该资源及其 WASM 路径已在现有 CDP 匹配范围内。脚本匹配只说明浏览器侧的覆盖范围，不能用来推断服务端判定或账号状态。
+- 本机 Chrome 安装守卫后，`history.back` 已被替换，`window.close` 和 `location.replace` 仍是原函数。已知 HTTP 风险路径的阻断主要依赖 CDP；脚本注入无法保证阻止关页或防封。
+- 发布前运行 `npm run check:boss-frontend`。它校验公开入口实际引用的脚本和聊天入口声明的 `remoteEntry.js`，任何不一致都会报错。普通命令不会自动发起这组请求，也不会因验收失败自动停用。
+
 ## 2026-07-13 baseline review
 
 - Captured snapshot: `docs/research/boss-online-js/2026-07-13`.
@@ -89,8 +97,7 @@ if (b - a > THRESHOLD) {  // DevTools 打开
 
 500 元素 × 50 次会产生 10ms+ 量级的稳定差异，阈值一过即判定 DevTools 打开。
 
-**触发后果**：调用 `window.close()` / `history.back()` / `location.href = ...` 等破坏动作（这些动作
-我方在 §三.2 里都拦下了，但页面会反复重试，最终仍会脱壳）。
+**触发后果**：调用 `window.close()` / `history.back()` / `location.href = ...` 等动作。各动作的守卫覆盖不同，见 §三.2。
 
 **我方对抗**：把 `console` 的 `log` / `info` / `debug` / `warn` / `error` / `table` / `dir` /
 `dirxml` / `trace` / `group` / `groupCollapsed` 全部包装为「先把对象参数归一化为 `[object Type]`
@@ -159,12 +166,12 @@ if (b - a > THRESHOLD) {  // DevTools 打开
 
 | # | 动作 | 我方拦截 |
 |---|------|---------|
-| 1 | `window.close()` | ✅ `Window.prototype.close` 替换为 noop |
+| 1 | `window.close()` | 尝试包装 prototype 方法；本机 Chrome 未替换成功 |
 | 2 | `history.back()` / `history.go(-1)` | ✅ `History.prototype.back/go(n<0)` 替换为 noop |
-| 3 | `location.href = "about:blank"` 或风控页 | ✅ `Location.prototype.href` setter 拦截 + CDP 风险 URL 拦截 |
+| 3 | `location.href = "about:blank"` 或风控页 | 匹配的 HTTP 风控 URL 由 CDP 拦截；`about:blank` 不走网络 |
 | 4 | 制造内存压力（大数组循环） | ❌ 无对抗（业务代码可恢复） |
 | 5 | 注入隐藏/模糊页面样式 | ❌ 无对抗（CSS 注入会改 DOM，但 risk-detection 99001 也会上报，存在牵制） |
-| 6 | 设置空跳转 | ✅ Location 守卫 |
+| 6 | 设置空跳转 | 取决于实际目标以及 Location 守卫能否安装 |
 | 7 | `navigator.sendBeacon(...)` 上报到 `logapi.zhipin.com/dap/api/json` | ✅ CDP `Fetch.fulfillRequest` 返回 204 |
 
 > 上报通道还包括 `fetch(..., {keepalive: true})`、同步/异步 XHR——任意通道走的都是 logapi 域，一律
@@ -180,7 +187,7 @@ if (b - a > THRESHOLD) {  // DevTools 打开
 | console 副作用探测 | §三.2 同上（连带消除） | ✅ 已实现 |
 | 隐藏 iframe 取干净 console | §三.2 `evaluateOnNewDocument` 走 puppeteer 注册到所有 frame target | ✅ `srcdoc` 主路径已验证 |
 | 关键对象完整性校验 | §三.2 改写都落 prototype，保留 toString 原生形态 | ✅ 已实现 |
-| 命中后破坏动作（关页/跳转） | §三.2 + §三.3 | ✅ 已实现 |
+| 命中后破坏动作（关页/跳转） | §三.2 + §三.3 | 部分覆盖；见 §三.2 |
 | 命中后破坏动作（上报到 logapi） | §三.3 CDP 返回 204 | ✅ 已实现 |
 
 > **建议补强**：自动化命令执行时**避免手动打开页面 DevTools**——主包的 DevTools 检测只要面板打开
@@ -221,7 +228,7 @@ if (b - a > THRESHOLD) {  // DevTools 打开
   探测脚本预埋的 getter 再也不会被触发。
 - **隐藏 `srcdoc` iframe 取 clean console** 的主路径已用本地 Puppeteer 验证覆盖：子 frame 中
   `navigator.webdriver === false`，对象 console 输出同样被归一化。
-- **关闭/跳转破坏动作**已被 §三.2 与 §三.3 双层拦下。
+- **关闭/跳转破坏动作**的当前覆盖范围见 §三.2 与 §三.3。
 - **上报通道**已被 §三.3 网络拦截 204 掉，即使本地检测被打穿，外层也拿不到数据。
 
 ### 2. Passport 控制逻辑 — 主包 `handlePassportController`
@@ -459,17 +466,14 @@ puppeteer 内部会把脚本同步注册到主 frame CDP session，并在 OOPIF/
 
 | 攻击手段 | 防御方式 |
 |----------|---------|
-| `window.close()` | 替换为带原生 toString 的 noop（落在 `Window.prototype.close`） |
-| `location.assign(url)` | `Location.prototype.assign` 包装，命中 `BLOCK_PATH` 或 `about:blank` 直接吞掉 |
-| `location.replace(url)` | `Location.prototype.replace` 包装，规则同上 |
-| `location.href = ...` 直接赋值 | `Location.prototype.href` setter 包装，规则同上（覆盖直接赋值场景） |
+| `window.close()` | 尝试修改 prototype 上可配置的属性；本机 Chrome 中实际方法未变 |
+| `location.assign(url)` / `location.replace(url)` / `location.href = ...` | 尝试修改 `Location.prototype` 上可配置的属性；本机 Chrome 中 `replace` 未变，匹配的网络请求仍由 CDP 拦截 |
 | `history.back()` / `history.forward()` | 替换为带原生 toString 的 noop |
 | `history.go(-N)` | `go(n)` 包装，仅当 `n < 0` 时短路返回；`go(0)`/`go(N>=0)` 走原生 |
 | `console.clear()` 周期清屏 | 替换为带原生形态的 noop（详见 §一.2） |
 | `console.log/info/debug/warn/error/table/dir/dirxml/trace/group/groupCollapsed` 时间差与副作用探测 | 包装：先把对象参数归一化为 `[object Type]` 字符串再交给原生方法（详见 §一.3 / §一.4） |
 
-> 不再覆盖 `window.closed`：`close()` 已经是 noop，原生 `closed` 自然保持 `false`，无需在实例
-> 上再加一个 accessor 让 descriptor 异常。
+> `window.closed` 保持浏览器原生行为。
 
 > **console 包装实现细节**：Chromium 把 `console.log` 等方法挂在 **`console` 实例的 own property**
 > 上，不在 `Console.prototype` 上（与 `clear` 一样）。所以脚本的查找顺序是"先 instance own、再退回
@@ -576,7 +580,7 @@ recommend / chat 等命令的输出，对 agent / 脚本调用方零侵入）。
    → 强制导航，此时：
      - 页面级伪装已在新文档脚本执行前注册（第二层）
      - 安全模块的 <script> / wasm 请求被 CDP 拦截（第三层）
-     - 任何页面内触发的关闭/跳转被伪装脚本阻止（第二层）
+     - 页面脚本包装可修改的浏览器属性，CDP 拦截匹配的网络请求
      - 缓存已禁用，不会出现 304 绕过（第三层）
 
 9. ensureMenuListStableAfterLoad()
@@ -592,13 +596,12 @@ recommend / chat 等命令的输出，对 agent / 脚本调用方零侵入）。
 
 以下策略按优先级排序；除"已实现"外，均需要实测验证，避免引入新的指纹或破坏业务脚本。
 
-### 1. 已实现：拦截破坏性导航/关页
+### 1. 页面导航守卫覆盖范围
 
 当前守卫脚本已覆盖：
 
-- `window.close()`
 - `history.back()` / `history.forward()` / `history.go(n < 0)`
-- `Location.assign/replace` 指向 `about:blank`、403、nonsupport、verify、Passport 风控页面
+- CDP 阻断匹配 403、nonsupport、verify 和 Passport 风控规则的网络请求
 - 主框架如果仍被带到风险 URL，会触发 `framenavigated` 守卫重新回到沟通页
 
 这能挡住主包检测命中后的部分破坏动作；`location.href = ...` 直接赋值则主要依靠 CDP 风险导航请求
@@ -617,6 +620,7 @@ recommend / chat 等命令的输出，对 agent / 脚本调用方零侵入）。
 /web/passport/zp/security.html
 /web/passport/cm/403.html
 /web/passport/cm/verify.html
+/web/passport/cm/security.html
 /web/passport/cm/security-check.html
 ```
 

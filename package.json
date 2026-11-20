@@ -47,6 +47,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "check:boss-frontend": "npm run build && node --input-type=module -e \"import { assertBossFrontendBaseline } from './dist/common/boss_availability.js'; await assertBossFrontendBaseline(); console.log('Boss frontend baseline verified.')\"",
     "dev": "npm run build && node dist/cli/index.js",
     "test:baidu": "node --env-file=.env scripts/test-baidu-ocr.mjs",
     "deploy": "npm --prefix landing run deploy"

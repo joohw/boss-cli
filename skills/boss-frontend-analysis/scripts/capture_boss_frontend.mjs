@@ -171,7 +171,7 @@ function extractHtmlScripts(html, baseUrl) {
   return urls;
 }
 
-function extractAbsoluteScriptUrls(jsText, baseUrl) {
+function extractAbsoluteScriptUrls(jsText, pageUrl) {
   const urls = new Set();
   const absoluteRe = /https?:\/\/[^"'()<>\s\\]+?\.js(?:\?[^"'()<>\s\\]*)?/g;
   for (const match of jsText.matchAll(absoluteRe)) {
@@ -181,10 +181,9 @@ function extractAbsoluteScriptUrls(jsText, baseUrl) {
   for (const match of jsText.matchAll(protocolRelativeRe)) {
     urls.add(`https:${match[0]}`);
   }
-  const current = new URL(baseUrl);
   const rootRelativeRe = /["'](\/[^"'()<>\s\\]+?\.js(?:\?[^"'()<>\s\\]*)?)["']/g;
   for (const match of jsText.matchAll(rootRelativeRe)) {
-    urls.add(`${current.origin}${match[1]}`);
+    urls.add(new URL(match[1], pageUrl).href);
   }
   return Array.from(urls);
 }
@@ -210,23 +209,30 @@ function extractStaticJsPaths(jsText, baseUrl) {
 }
 
 function extractInferredWebpackChunkUrls(jsText, baseUrl) {
-  const publicPathMatches = Array.from(
-    jsText.matchAll(/[A-Za-z_$][\w$]*\.p\s*=\s*["']([^"']+)["']/g),
-  );
-  const publicPaths = publicPathMatches
-    .map((match) => normalizeUrl(match[1], baseUrl))
-    .filter(Boolean);
-  if (publicPaths.length === 0 || !/\.u\s*=\s*function\([^)]*\)\s*\{return["']static\/js\//.test(jsText)) {
-    return [];
-  }
-  const ids = Array.from(new Set(Array.from(jsText.matchAll(/\.e\((\d+)\)/g)).map((m) => m[1])));
   const urls = [];
-  for (const publicPath of publicPaths) {
-    for (const id of ids) {
-      urls.push(normalizeUrl(`static/js/${id}.js`, publicPath));
+  const publicPaths = jsText.matchAll(/([\w$]+)\.p\s*=\s*["']([^"']+)["']/g);
+  const ids = new Set(Array.from(jsText.matchAll(/\.e\((\d+)\)/g), (m) => m[1]));
+  for (const [, runtime, rawPath] of publicPaths) {
+    const publicPath = normalizeUrl(rawPath, baseUrl);
+    if (!publicPath) continue;
+
+    const loader = Array.from(jsText.matchAll(/([\w$]+)\.u=function\(\w+\)\{return"static\/js\/"\+([^;]+?)(?=\},)/g))
+      .find((match) => match[1] === runtime)?.[2];
+    if (!loader) continue;
+
+    const hashed = loader.match(/^\(\{([^}]+)\}\[\w+\]\|\|\w+\)\+"\."\+\{([^}]+)\}\[\w+\]\+"\.js"$/);
+    if (hashed) {
+      const names = new Map(Array.from(hashed[1].matchAll(/(\d+):"([\w-]+)"/g), (m) => [m[1], m[2]]));
+      for (const [, id, hash] of hashed[2].matchAll(/(\d+):"([a-f0-9]+)"/g)) {
+        urls.push(new URL(`static/js/${names.get(id) ?? id}.${hash}.js`, publicPath).href);
+      }
+    } else if (/^\w+\+"\.js"$/.test(loader)) {
+      for (const id of ids) {
+        urls.push(new URL(`static/js/${id}.js`, publicPath).href);
+      }
     }
   }
-  return urls.filter(Boolean);
+  return urls;
 }
 
 async function fetchStrict(url) {
@@ -429,9 +435,9 @@ function buildAnalysis({ date, baselineDate, manifest, previousManifest }) {
   }
 
   if (manifest.unresolvedScriptUrls.length > 0) {
-    lines.push('## Unresolved Inferred Script URLs', '');
+    lines.push('## Unresolved Nested Script URLs', '');
     lines.push(
-      'These URLs were inferred from webpack runtime chunk ids but could not be downloaded.',
+      'These URLs were inferred from script references or webpack chunk loaders but could not be downloaded.',
       '',
       ...manifest.unresolvedScriptUrls.map(
         (item) => `- ${item.url}: ${item.error} (from ${item.source})`,
@@ -443,7 +449,7 @@ function buildAnalysis({ date, baselineDate, manifest, previousManifest }) {
   lines.push('## Recommendation', '');
   if (baselineChanged || added.length > 0 || removed.length > 0 || changedHashes.length > 0) {
     lines.push(
-      '- Keep boss-cli disabled until the archived raw scripts are manually reviewed.',
+      '- Treat this frontend as unverified for release until the archived scripts are manually reviewed.',
       '- Update `src/common/boss_availability.ts` only after accepting the new script versions and hashes.',
       '- Re-check `src/common/boss_page_guards.ts` request patterns against any new risk, security, or reporting script URLs.',
       '- Update `docs/anti-detection.md` with the new versions and risk findings.',
@@ -513,7 +519,7 @@ async function main() {
     fetchedScripts.set(url, { fetched, text });
 
     const source = { label: url, url };
-    const nested = [...extractAbsoluteScriptUrls(text, url), ...extractStaticJsPaths(text, url)];
+    const nested = [...extractAbsoluteScriptUrls(text, ENTRY_PAGES[0].url), ...extractStaticJsPaths(text, url)];
     for (const nestedUrl of nested) {
       if (!nestedUrl || !nestedUrl.endsWith('.js')) {
         continue;

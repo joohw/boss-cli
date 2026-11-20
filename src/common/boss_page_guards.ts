@@ -44,6 +44,7 @@ const RISK_NAVIGATION_PATTERNS = [
   { urlPattern: '*/web/passport/zp/security.html*', requestStage: 'Request' },
   { urlPattern: '*/web/passport/cm/403.html*', requestStage: 'Request' },
   { urlPattern: '*/web/passport/cm/verify.html*', requestStage: 'Request' },
+  { urlPattern: '*/web/passport/cm/security.html*', requestStage: 'Request' },
   { urlPattern: '*/web/passport/cm/security-check.html*', requestStage: 'Request' },
 ] as const;
 
@@ -51,7 +52,7 @@ const REPORT_REQUEST_RE =
   /(?:logapi(?:-dev)?\.(?:zhipin|weizhipin)\.com\/dap\/api\/json|apm-fe(?:-qa)?\.(?:zhipin|weizhipin)\.com\/wapi\/zpApm\/|warlock\.zhipin\.com\/wapi\/warlock\/|shink\.zhipin\.com\/wapi\/dapCommon\/json)/i;
 
 const RISK_NAVIGATION_RE =
-  /about:blank|\/web\/common\/(?:403|nonsupport)\.html|\/web\/user\/safe\/verify|\/web\/passport\/(?:zp\/(?:403|verify|security)\.html|cm\/(?:403|verify|security-check)\.html)/i;
+  /about:blank|\/web\/common\/(?:403|nonsupport)\.html|\/web\/user\/safe\/verify|\/web\/passport\/(?:zp\/(?:403|verify|security)\.html|cm\/(?:403|verify|security(?:-check)?)\.html)/i;
 
 type RequestHeaders = Record<string, string | undefined>;
 
@@ -141,7 +142,7 @@ function buildNoContentResponseHeaders(headers: RequestHeaders) {
  * - 对 `Location.prototype.href` 的 setter 也加拦截，覆盖 `location.href = ...` 直接赋值场景。
  * - 不再伪造 `navigator.plugins` 与 `window.chrome.*`：现代 Chrome 默认值已经合理，伪造反而会被
  *   `instanceof PluginArray`、对象形态比对等检测一眼分辨。
- * - 不再覆盖 `window.closed`：`close()` 已经被改写为 noop，`closed` 自然保持原生默认值。
+ * - `window.closed` 保持原生行为；浏览器不一定允许改写 `close()`。
  */
 const BOSS_PAGE_GUARD_SCRIPT_TEMPLATE = `(function() {
   'use strict';
@@ -270,7 +271,7 @@ const BOSS_PAGE_GUARD_SCRIPT_TEMPLATE = `(function() {
   } catch (e) {}
 
   // ===== Location.assign / replace / href setter =====
-  var BLOCK_PATH = /\\/web\\/common\\/(?:403|nonsupport)\\.html|\\/web\\/user\\/safe\\/verify|\\/web\\/passport\\/(?:zp\\/(?:403|verify|security)\\.html|cm\\/(?:403|verify|security-check)\\.html)/i;
+  var BLOCK_PATH = /\\/web\\/common\\/(?:403|nonsupport)\\.html|\\/web\\/user\\/safe\\/verify|\\/web\\/passport\\/(?:zp\\/(?:403|verify|security)\\.html|cm\\/(?:403|verify|security(?:-check)?)\\.html)/i;
   var isBlockedTarget = function(value) {
     var s = _String(value);
     if (s === 'about:blank') return true;

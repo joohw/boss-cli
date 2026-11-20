@@ -1,0 +1,3 @@
+raw/** -text diff
+manifest.json text eol=lf
+analysis.md text eol=lf
